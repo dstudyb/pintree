@@ -97,17 +97,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           </SidebarMenuSubItem>
                         ))}
 
-                        {item.title === "Settings" && (
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton 
-                              onClick={() => setIsWebDAVOpen(true)}
-                              className="cursor-pointer text-slate-400 hover:text-slate-100 transition-colors flex items-center gap-2"
-                            >
-                              <RefreshCw className="size-3.5" />
-                              <span>WebDAV Settings</span>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        )}
+                        
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
