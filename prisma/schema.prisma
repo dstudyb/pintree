@@ -129,3 +129,11 @@ model Image {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
+
+// WebDAV模型
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique // 例如: "webdav_config"
+  value     String   // 存储 JSON 格式的配置信息
+  updatedAt DateTime @updatedAt
+}
