@@ -35,15 +35,12 @@ const WebDAVSettings = ({ onClose }: { onClose?: () => void }) => {
     setMessage('');
 
     try {
-      // 修改点 1: 不需要前端构造 data 了，也不需要 mockData
-      // 直接构造发送给后端的 payload
+      // 修改点 1: 移除 data 字段，不再由前端传递数据
       const payload = {
-        action: action === 'test' ? 'download' : action, // Test 本质上是尝试读取文件或目录
+        action: action === 'test' ? 'download' : action, // Test 本质上是尝试读取
         config: config,
-        // data 字段已移除，由后端直接读取数据库
       };
 
-      // 修改点 2: 根据动作选择 API 端点
       const endpoint = action === 'test' ? '/api/webdav/test' : '/api/webdav/sync';
 
       const response = await fetch(endpoint, {
@@ -60,13 +57,13 @@ const WebDAVSettings = ({ onClose }: { onClose?: () => void }) => {
       setSyncStatus('success');
       
       if (action === 'upload') {
-        // 后端会返回 "成功备份 X 个集合..." 的消息
         setMessage(result.message || '备份成功！数据已上传到云端。');
       } else if (action === 'download') {
-        console.log('从云端获取的数据:', result.data);
-        // 这里只是展示下载成功，恢复逻辑（写入数据库）通常比较复杂，目前先只做读取
-        const count = result.data?.data?.length || 0;
-        setMessage(`下载成功！云端包含 ${count} 个集合。(数据已在控制台打印)`);
+        // 修改点 2: 恢复成功后刷新页面
+        setMessage('恢复成功！页面即将刷新...');
+        setTimeout(() => {
+           window.location.reload();
+        }, 1500);
       } else {
         setMessage('连接验证成功！');
         // 保存非敏感信息
