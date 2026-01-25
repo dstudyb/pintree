@@ -69,21 +69,21 @@ export async function POST(request: Request) {
               id: col.id,
               name: col.name,
               slug: col.slug,
-              isPublic: col.isPublic, // 注意字段名可能不同，根据你的 schema 调整
+              isPublic: col.isPublic, 
               createdAt: col.createdAt,
             }
           });
 
           const folders = col.folders || [];
 
-          // 恢复 Folders (第一遍：只创建节点，不挂载 parentId，防止父节点后创建导致的报错)
+          // 恢复 Folders (第一遍：只创建节点，不挂载 parentId)
           for (const folder of folders) {
             await tx.folder.create({
               data: {
                 id: folder.id,
                 name: folder.name,
                 collectionId: col.id,
-                level: folder.level,
+                // level: folder.level,  <-- 删除了这一行，因为数据库里没有这个字段
                 index: folder.index,
                 parentId: null, // 先置空
                 createdAt: folder.createdAt,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
           }
         }
       }, {
-        maxWait: 10000, // 增加超时时间
+        maxWait: 10000, 
         timeout: 20000 
       });
 
