@@ -80,8 +80,6 @@ export async function POST(request: Request) {
                 id: folder.id,
                 name: folder.name,
                 collectionId: col.id,
-                // index: folder.index, <--- 已删除
-                // level: folder.level, <--- 已删除
                 parentId: null, 
                 createdAt: folder.createdAt,
               }
@@ -107,7 +105,7 @@ export async function POST(request: Request) {
                   icon: bm.icon,
                   desc: bm.desc,
                   folderId: folder.id,
-                  // sort: bm.sort, <--- 顺便检查一下 bookmark 是否有 sort 字段，如果有报错可以再删
+                  collectionId: col.id, // <--- 关键修复：添加了 collectionId
                   createdAt: bm.createdAt,
                 }))
               });
