@@ -130,7 +130,7 @@ async function handleSync(action: string, manualConfig: any) {
       });
     }
 
-    // === 动作: 恢复 (Download) ===
+    // === 动作 B: 恢复 (WebDAV -> 数据库) ===
     if (action === 'download') {
       if (await client.exists(config.remotePath) === false) {
         return NextResponse.json({ success: false, message: 'WebDAV 上找不到目标文件' }, { status: 404 });
@@ -183,8 +183,12 @@ async function handleSync(action: string, manualConfig: any) {
                   title: bm.title,
                   url: bm.url,
                   icon: bm.icon,
-                  // 修复 Description 兼容性 (优先 description，其次 desc，最后空)
-                  desc: bm.description || bm.desc || "", 
+                  
+                  // =========== 核心修复点 ===========
+                  // 数据库字段名是 description，而不是 desc
+                  description: bm.description || bm.desc || "", 
+                  // =================================
+                  
                   folderId: folder.id,
                   collectionId: col.id,
                   createdAt: bm.createdAt,
