@@ -11,8 +11,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  ChevronRight,
-  RefreshCw // 1. 引入 WebDAV 同步图标
+  ChevronRight
+  // 1. 移除了 RefreshCw，因为我们不需要图标了
 } from "lucide-react";
 
 import {
@@ -33,7 +33,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { Skeleton } from "../ui/skeleton";
-import WebDAVSettings from "../WebDAV/WebDAVSettings"; // 2. 引入配置面板组件
+import WebDAVSettings from "../WebDAV/WebDAVSettings"; 
 
 const menuItems = [
   {
@@ -59,7 +59,6 @@ const menuItems = [
         href: "/admin/settings/seo",
         label: "SEO Settings",
       },
-      // 3. 在数据结构中预留标识，用于后面渲染 WebDAV 按钮
       {
         href: "#webdav",
         label: "WebDAV Settings",
@@ -72,8 +71,6 @@ const menuItems = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(["/admin/settings"]));
-  
-  // 4. 添加控制弹窗显示的状态
   const [isWebDAVOpen, setIsWebDAVOpen] = useState(false);
 
   const toggleExpand = (href: string) => {
@@ -143,14 +140,14 @@ export function AdminSidebar() {
                         <div className="pl-6 mt-1 space-y-1">
                           {item.subItems.map((subItem) => (
                             subItem.isWebDAV ? (
-                              // 5. 渲染特殊的 WebDAV 触发按钮，保持与其他子项样式一致
+                              // 2. 修正后的 WebDAV 按钮：移除了图标，Class完全对齐
                               <SidebarMenuButton
                                 key={subItem.href}
                                 onClick={() => setIsWebDAVOpen(true)}
                                 size="sm"
-                                className="w-full text-sm text-muted-foreground hover:bg-gray-200/50 active:bg-gray-200/50 justify-start"
+                                // 使用与下方 Link 按钮完全一致的 className
+                                className="text-sm text-muted-foreground hover:bg-gray-200/50 active:bg-gray-200/50 w-full justify-start"
                               >
-                                <RefreshCw className="h-3.5 w-3.5 mr-2" />
                                 {subItem.label}
                               </SidebarMenuButton>
                             ) : (
@@ -203,7 +200,7 @@ export function AdminSidebar() {
         <SidebarRail />
       </Sidebar>
 
-      {/* 6. 全局弹窗容器 */}
+      {/* 全局弹窗容器 */}
       {isWebDAVOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="absolute inset-0" onClick={() => setIsWebDAVOpen(false)} />
