@@ -2,13 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'webdav';
 import { PrismaClient } from '@prisma/client';
 
-// 实例化 Prisma (通常建议从单例文件导入，这里为了方便直接实例化，或者使用你项目中现有的 @/lib/prisma)
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, config } = body; // 不需要前端传 data 了
+    const { action, config } = body;
 
     if (!config?.url || !config?.username || !config?.password) {
       return NextResponse.json({ success: false, message: '配置缺失' }, { status: 400 });
@@ -21,10 +20,6 @@ export async function POST(request: Request) {
 
     // === 动作 A: 备份 (数据库 -> WebDAV) ===
     if (action === 'upload') {
-      console.log('开始执行备份...');
-      
-      // 1. 从数据库获取所有数据 (关联查询)
-      // 我们导出 Collections，并包含下面的 Folders 和 Bookmarks
       const allData = await prisma.collection.findMany({
         include: {
           folders: {
@@ -35,49 +30,107 @@ export async function POST(request: Request) {
         }
       });
 
-      // 2. 构造备份文件内容 (增加元数据)
       const backupPayload = {
-        meta: {
-          version: '1.0',
-          exportedAt: new Date().toISOString(),
-          app: 'Pintree'
-        },
+        meta: { version: '1.0', exportedAt: new Date().toISOString(), app: 'Pintree' },
         data: allData
       };
       
-      const fileContent = JSON.stringify(backupPayload, null, 2);
-      
-      // 3. 写入 WebDAV
-      await client.putFileContents(config.remotePath, fileContent);
-      
+      await client.putFileContents(config.remotePath, JSON.stringify(backupPayload, null, 2));
       return NextResponse.json({ success: true, message: `成功备份 ${allData.length} 个集合到云端` });
     }
 
     // === 动作 B: 恢复 (WebDAV -> 数据库) ===
-    // 注意：恢复逻辑比较复杂，通常涉及“清空重写”或“增量合并”。
-    // 这里先实现“读取并返回给前端”，让用户确认。
     if (action === 'download') {
+      // 1. 读取云端文件
       if (await client.exists(config.remotePath) === false) {
         return NextResponse.json({ success: false, message: '云端备份文件不存在' }, { status: 404 });
       }
 
       const fileBuffer = await client.getFileContents(config.remotePath);
-      const fileString = fileBuffer.toString();
-      const jsonData = JSON.parse(fileString);
+      const jsonContent = JSON.parse(fileBuffer.toString());
+      const collectionsToRestore = jsonContent.data;
 
-      return NextResponse.json({ success: true, data: jsonData, message: '下载成功' });
+      if (!Array.isArray(collectionsToRestore)) {
+        return NextResponse.json({ success: false, message: '备份文件格式错误' }, { status: 400 });
+      }
+
+      // 2. 执行数据库恢复事务
+      await prisma.$transaction(async (tx) => {
+        // A. 清空现有数据 (顺序很重要：先删子节点，再删父节点)
+        await tx.bookmark.deleteMany({});
+        await tx.folder.deleteMany({});
+        await tx.collection.deleteMany({});
+
+        // B. 逐个恢复集合
+        for (const col of collectionsToRestore) {
+          // 恢复 Collection
+          await tx.collection.create({
+            data: {
+              id: col.id,
+              name: col.name,
+              slug: col.slug,
+              isPublic: col.isPublic, // 注意字段名可能不同，根据你的 schema 调整
+              createdAt: col.createdAt,
+            }
+          });
+
+          const folders = col.folders || [];
+
+          // 恢复 Folders (第一遍：只创建节点，不挂载 parentId，防止父节点后创建导致的报错)
+          for (const folder of folders) {
+            await tx.folder.create({
+              data: {
+                id: folder.id,
+                name: folder.name,
+                collectionId: col.id,
+                level: folder.level,
+                index: folder.index,
+                parentId: null, // 先置空
+                createdAt: folder.createdAt,
+              }
+            });
+          }
+
+          // 恢复 Folders (第二遍：更新 parentId 关系)
+          for (const folder of folders) {
+            if (folder.parentId) {
+              await tx.folder.update({
+                where: { id: folder.id },
+                data: { parentId: folder.parentId }
+              });
+            }
+
+            // 恢复 Bookmarks
+            if (folder.bookmarks && folder.bookmarks.length > 0) {
+              await tx.bookmark.createMany({
+                data: folder.bookmarks.map((bm: any) => ({
+                  id: bm.id,
+                  title: bm.title,
+                  url: bm.url,
+                  icon: bm.icon,
+                  desc: bm.desc,
+                  folderId: folder.id,
+                  sort: bm.sort,
+                  createdAt: bm.createdAt,
+                }))
+              });
+            }
+          }
+        }
+      }, {
+        maxWait: 10000, // 增加超时时间
+        timeout: 20000 
+      });
+
+      return NextResponse.json({ success: true, message: '恢复成功，页面即将刷新' });
     }
 
     return NextResponse.json({ success: false, message: '无效的动作' }, { status: 400 });
 
   } catch (error: any) {
     console.error('WebDAV Sync Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message || '同步出错' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message || '同步出错' }, { status: 500 });
   } finally {
-    // 这里的 disconnect 在 Serverless 环境中可选，但为了规范可以加上
     await prisma.$disconnect();
   }
 }
