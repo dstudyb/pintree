@@ -103,7 +103,7 @@ export async function POST(request: Request) {
                   title: bm.title,
                   url: bm.url,
                   icon: bm.icon,
-                  desc: bm.desc,
+                  desc: bm.description || bm.desc || "",
                   folderId: folder.id,
                   collectionId: col.id, // <--- 关键修复：添加了 collectionId
                   createdAt: bm.createdAt,
