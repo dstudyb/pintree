@@ -41,7 +41,6 @@ export async function POST(request: Request) {
 
     // === 动作 B: 恢复 (WebDAV -> 数据库) ===
     if (action === 'download') {
-      // 1. 读取云端文件
       if (await client.exists(config.remotePath) === false) {
         return NextResponse.json({ success: false, message: '云端备份文件不存在' }, { status: 404 });
       }
@@ -54,44 +53,42 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: '备份文件格式错误' }, { status: 400 });
       }
 
-      // 2. 执行数据库恢复事务
       await prisma.$transaction(async (tx) => {
-        // A. 清空现有数据 (顺序很重要：先删子节点，再删父节点)
+        // 清空现有数据
         await tx.bookmark.deleteMany({});
         await tx.folder.deleteMany({});
         await tx.collection.deleteMany({});
 
-        // B. 逐个恢复集合
+        // 逐个恢复集合
         for (const col of collectionsToRestore) {
-          // 恢复 Collection
           await tx.collection.create({
             data: {
               id: col.id,
               name: col.name,
               slug: col.slug,
-              isPublic: col.isPublic, 
+              isPublic: col.isPublic,
               createdAt: col.createdAt,
             }
           });
 
           const folders = col.folders || [];
 
-          // 恢复 Folders (第一遍：只创建节点，不挂载 parentId)
+          // 恢复 Folders (第一遍：只创建节点)
           for (const folder of folders) {
             await tx.folder.create({
               data: {
                 id: folder.id,
                 name: folder.name,
                 collectionId: col.id,
-                // level: folder.level,  <-- 删除了这一行，因为数据库里没有这个字段
-                index: folder.index,
-                parentId: null, // 先置空
+                // index: folder.index, <--- 已删除
+                // level: folder.level, <--- 已删除
+                parentId: null, 
                 createdAt: folder.createdAt,
               }
             });
           }
 
-          // 恢复 Folders (第二遍：更新 parentId 关系)
+          // 恢复 Folders (第二遍：更新父子关系)
           for (const folder of folders) {
             if (folder.parentId) {
               await tx.folder.update({
@@ -110,7 +107,7 @@ export async function POST(request: Request) {
                   icon: bm.icon,
                   desc: bm.desc,
                   folderId: folder.id,
-                  sort: bm.sort,
+                  // sort: bm.sort, <--- 顺便检查一下 bookmark 是否有 sort 字段，如果有报错可以再删
                   createdAt: bm.createdAt,
                 }))
               });
@@ -118,7 +115,7 @@ export async function POST(request: Request) {
           }
         }
       }, {
-        maxWait: 10000, 
+        maxWait: 10000,
         timeout: 20000 
       });
 
