@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from 'webdav';
+import { PrismaClient } from '@prisma/client';
+
+// 实例化 Prisma (通常建议从单例文件导入，这里为了方便直接实例化，或者使用你项目中现有的 @/lib/prisma)
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, config, data } = body;
-    // config 包含: url, username, password, remotePath
+    const { action, config } = body; // 不需要前端传 data 了
 
     if (!config?.url || !config?.username || !config?.password) {
       return NextResponse.json({ success: false, message: '配置缺失' }, { status: 400 });
@@ -16,39 +19,53 @@ export async function POST(request: Request) {
       password: config.password,
     });
 
-    // === 动作 A: 上传 (备份到云端) ===
+    // === 动作 A: 备份 (数据库 -> WebDAV) ===
     if (action === 'upload') {
-      if (!data) {
-        return NextResponse.json({ success: false, message: '没有数据可上传' }, { status: 400 });
-      }
+      console.log('开始执行备份...');
       
-      // 将 JSON 对象转为字符串
-      const fileContent = JSON.stringify(data, null, 2);
+      // 1. 从数据库获取所有数据 (关联查询)
+      // 我们导出 Collections，并包含下面的 Folders 和 Bookmarks
+      const allData = await prisma.collection.findMany({
+        include: {
+          folders: {
+            include: {
+              bookmarks: true
+            }
+          }
+        }
+      });
+
+      // 2. 构造备份文件内容 (增加元数据)
+      const backupPayload = {
+        meta: {
+          version: '1.0',
+          exportedAt: new Date().toISOString(),
+          app: 'Pintree'
+        },
+        data: allData
+      };
       
-      // 写入 WebDAV
+      const fileContent = JSON.stringify(backupPayload, null, 2);
+      
+      // 3. 写入 WebDAV
       await client.putFileContents(config.remotePath, fileContent);
       
-      return NextResponse.json({ success: true, message: '上传成功' });
+      return NextResponse.json({ success: true, message: `成功备份 ${allData.length} 个集合到云端` });
     }
 
-    // === 动作 B: 下载 (从云端恢复) ===
+    // === 动作 B: 恢复 (WebDAV -> 数据库) ===
+    // 注意：恢复逻辑比较复杂，通常涉及“清空重写”或“增量合并”。
+    // 这里先实现“读取并返回给前端”，让用户确认。
     if (action === 'download') {
-      // 检查文件是否存在
       if (await client.exists(config.remotePath) === false) {
-        return NextResponse.json({ success: false, message: '云端文件不存在' }, { status: 404 });
+        return NextResponse.json({ success: false, message: '云端备份文件不存在' }, { status: 404 });
       }
 
-      // 读取文件
       const fileBuffer = await client.getFileContents(config.remotePath);
-      // 处理 Buffer 转 String
       const fileString = fileBuffer.toString();
-      
-      try {
-        const jsonData = JSON.parse(fileString);
-        return NextResponse.json({ success: true, data: jsonData, message: '下载成功' });
-      } catch (e) {
-        return NextResponse.json({ success: false, message: '云端文件损坏，无法解析为 JSON' }, { status: 500 });
-      }
+      const jsonData = JSON.parse(fileString);
+
+      return NextResponse.json({ success: true, data: jsonData, message: '下载成功' });
     }
 
     return NextResponse.json({ success: false, message: '无效的动作' }, { status: 400 });
@@ -59,5 +76,8 @@ export async function POST(request: Request) {
       { success: false, message: error.message || '同步出错' },
       { status: 500 }
     );
+  } finally {
+    // 这里的 disconnect 在 Serverless 环境中可选，但为了规范可以加上
+    await prisma.$disconnect();
   }
 }
