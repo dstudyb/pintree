@@ -8,7 +8,16 @@ export const dynamic = 'force-dynamic';
 
 // === 1. 支持 GET 请求 (用于 Vercel Cron 自动定时备份) ===
 export async function GET(request: Request) {
-  // Cron 触发时默认执行 upload 动作，配置设为 null (自动读取数据库)
+  // 1. 获取 Authorization 头
+  const authHeader = request.headers.get('authorization');
+
+  // 2. 校验 Vercel 自动注入的密钥
+  // 注意：在本地开发环境调试时，可以把这个判断暂时注释掉，或者手动在 Header 里加
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 3. 验证通过，执行备份
   return handleSync('upload', null);
 }
 
