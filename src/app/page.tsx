@@ -183,9 +183,9 @@ function SearchParamsComponent() {
         <div className="flex flex-1 overflow-hidden">
         {/* ================================================================ */}
           {!isLoading && collections.length > 0 && !selectedCollectionId ? (
-             // ================= 修改点 8: Discover 页允许垂直滚动 =================
-             <div className="flex-1 container mx-auto px-4 py-12 overflow-y-auto">
-             {/* ==================================================================== */}
+             // ================= 修改点 8: Discover 页允许垂直滚动 (添加 hide-scrollbar) =================
+             <div className="flex-1 container mx-auto px-4 py-12 overflow-y-auto hide-scrollbar">
+             {/* ======================================================================================== */}
              <div className="text-center mb-12">
                <h1 className="text-4xl font-bold tracking-tight mb-4">Discover Collections</h1>
                <p className="text-lg text-muted-foreground">Select a collection to browse bookmarks.</p>
@@ -256,9 +256,9 @@ function SearchParamsComponent() {
                   
                   <div 
                     id="main-scroll-container" 
-                    // ================= 修改点 4: 修复底部留白 (使用有效的 pb-24) =================
-                    // pb-24 (96px) 是标准 Tailwind 类，确保底部有足够留白
-                    className="flex-1 overflow-y-auto pb-24"
+                    // ================= 修改点 11: 添加 hide-scrollbar 隐藏滚动条 =================
+                    // pb-24 (96px) 保持底部留白
+                    className="flex-1 overflow-y-auto pb-24 hide-scrollbar"
                     // ===========================================================================
                   >
                     <BookmarkGrid
@@ -283,9 +283,9 @@ function SearchParamsComponent() {
                 <BackToTop scrollContainerId="main-scroll-container" />
               </>
             ) : (
-              // ================= 修改点 10: GetStarted 区域允许滚动 =================
-              <div className="flex flex-1 h-full overflow-y-auto">
-              {/* ==================================================================== */}
+              // ================= 修改点 10: GetStarted 区域允许滚动 (添加 hide-scrollbar) =================
+              <div className="flex flex-1 h-full overflow-y-auto hide-scrollbar">
+              {/* ======================================================================================== */}
                 <GetStarted />
               </div>
             )}
