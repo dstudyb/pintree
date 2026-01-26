@@ -94,16 +94,17 @@ export function ImportCollectionDialog({
 
       const startTime = Date.now();
 
-      // ================= 修改点 1: 更智能的 Pintree 格式检测 =================
-      // 只要包含 "Pintree" 字样，或者同时拥有 folders 和 bookmarks 结构，就认为是专用格式
+      // ================= 1. Pintree 原生格式检测 =================
+      // 只要包含 Pintree (Pro/Lite等) 或 包含 folders/bookmarks 结构
       const isPintreeFormat = 
         jsonData.metadata?.exportedFrom?.includes("Pintree") || 
         (jsonData.folders && jsonData.bookmarks && !Array.isArray(jsonData.folders));
 
       if (isPintreeFormat) {
-        // ... Pintree 专用导入逻辑 (Marks-export.json 将走这里) ...
+        // ... Pintree 专用导入逻辑 ...
         batchSize = 50
-        // Import folders first
+        
+        // 1.1 导入文件夹
         const folderLevels = Object.keys(jsonData.folders)
           .map(Number)
           .sort((a, b) => a - b);
@@ -116,17 +117,15 @@ export function ImportCollectionDialog({
               name: formData.name,
               description: formData.description,
               folders: folderBatch,
-              collectionId: importedCollectionId, // Will be null for the first batch
-              folderMap: folderMap, // Pass existing folder mapping
+              collectionId: importedCollectionId,
+              folderMap: folderMap,
             };
 
             const folderResponse: any = await fetch(
               "/api/collections/import-recover-data/recover-folders",
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(folderRequestData),
               }
             );
@@ -134,32 +133,26 @@ export function ImportCollectionDialog({
             const folderData: any = await folderResponse.json();
 
             if (!folderResponse.ok) {
+              console.error("Folder Import Error Details:", folderData);
               toast({
                 variant: "destructive",
                 title: "Folder Import Failed",
-                description: folderData.error || "An error occurred while importing folders",
+                // 优先显示后端返回的具体错误信息
+                description: folderData.error || folderData.message || "An error occurred while importing folders. Check console for details.",
               });
               return;
             }
 
-            // Update collectionId and folderMap
             if (!importedCollectionId) {
               importedCollectionId = folderData.collectionId;
             }
             folderMap = folderData.insideFolderMap;
-
-            // Show folder import progress
-            toast({
-              title: "Folder Import Progress",
-              description: `Importing folders at level ${level}: Batch ${folderBatches.indexOf(folderBatch) + 1}/${folderBatches.length}`,
-            });
           }
         }
 
-        // Batch import bookmarks 
+        // 1.2 导入书签
         const totalBookmarks = jsonData.bookmarks.length;
         for (let i = 0; i < totalBookmarks; i += batchSize) {
-          const batchStartTime = Date.now();
           const batchBookmarks = jsonData.bookmarks.slice(i, i + batchSize);
        
           const requestData = {
@@ -170,18 +163,11 @@ export function ImportCollectionDialog({
        
           const response: any = await fetch("/api/collections/import-recover-data/recover-bookmarks", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestData),
           });
        
           const data: any = await response.json();
-          const batchEndTime = Date.now();
-          const batchDuration = (batchEndTime - batchStartTime) / 1000; // seconds
-          const remainingBatches = Math.ceil((totalBookmarks - i - batchSize) / batchSize);
-          const estimatedRemainingTime = batchDuration * remainingBatches;
-       
           if (!response.ok) {
             toast({
               variant: "destructive",
@@ -190,54 +176,65 @@ export function ImportCollectionDialog({
             });
             return;
           }
-       
-          // Show import progress
-          toast({
-            title: "Bookmark Import Progress",
-            description: `Imported ${Math.min(i + batchSize, totalBookmarks)}/${totalBookmarks} bookmarks 
-              (${batchDuration.toFixed(2)}s, estimated remaining ${estimatedRemainingTime.toFixed(2)}s)`,
-          });
+          
+          // Progress toast (optional, kept simple)
+          if (i + batchSize >= totalBookmarks) {
+             toast({ title: "Processing...", description: "Finalizing import..." });
+          }
         } 
+
       } else {
-        // ================= 修改点 2: 通用解析 + LiteMark 支持 =================
+        // ================= 2. 通用/LiteMark 格式解析 =================
         let rootNodes: any[] = [];
 
-        // 检测 LiteMark / Category 扁平格式 (litemark-backup.json 将走这里)
-        if (jsonData.bookmarks && Array.isArray(jsonData.bookmarks) && jsonData.bookmarks.length > 0 && jsonData.bookmarks[0].category) {
-            console.log("Detected LiteMark/Category flat format. Transforming...");
+        // 2.1 检测 LiteMark / 扁平分类格式 (bookmarks 是数组)
+        if (jsonData.bookmarks && Array.isArray(jsonData.bookmarks)) {
+            console.log("Detected LiteMark/Flat format. Transforming...");
             
             const categoryMap = new Map<string, any[]>();
+            const uncategorizedItems: any[] = [];
             
             jsonData.bookmarks.forEach((item: any) => {
-                const cat = item.category || "Uncategorized";
-                if (!categoryMap.has(cat)) {
-                    categoryMap.set(cat, []);
-                }
-                categoryMap.get(cat)?.push({
-                    title: item.title,
-                    name: item.title, // 确保有 name
+                // 必须做数据清洗，确保 createFlattenBookmarks 能识别
+                const cleanItem = {
+                    title: item.title || item.name || "Untitled",
                     url: item.url,
                     icon: item.icon,
                     description: item.description,
-                    addDate: Date.now(),
-                });
+                    type: "link", // 关键：显式标记为链接
+                    sortOrder: item.order || item.sortOrder || 0,
+                };
+
+                if (item.category) {
+                    if (!categoryMap.has(item.category)) {
+                        categoryMap.set(item.category, []);
+                    }
+                    categoryMap.get(item.category)?.push(cleanItem);
+                } else {
+                    uncategorizedItems.push(cleanItem);
+                }
             });
 
-            // 转换为树形结构
-            rootNodes = Array.from(categoryMap.entries()).map(([catName, items]) => ({
+            // 构建虚拟文件夹
+            const folderNodes = Array.from(categoryMap.entries()).map(([catName, items]) => ({
                 title: catName,
                 name: catName,
+                type: "folder", // 关键：显式标记为文件夹
                 children: items
             }));
+
+            // 合并所有根节点
+            rootNodes = [...folderNodes, ...uncategorizedItems];
         } 
-        // 否则使用通用递归查找 (Chrome/Edge 备份)
+        // 2.2 通用递归查找 (Chrome/Edge/其他嵌套结构)
         else {
             const findBookmarkNodes = (obj: any): any[] => {
               if (!obj) return [];
               
               if (Array.isArray(obj)) {
+                // 检查是否包含书签特征
                 const looksLikeBookmarks = obj.some(item => 
-                  item && (item.url || item.children || item.title || item.name)
+                  item && (item.url || item.children || (item.name && item.date_added))
                 );
                 if (looksLikeBookmarks) {
                   return obj;
@@ -247,6 +244,7 @@ export function ImportCollectionDialog({
                    if (found.length > 0) return found;
                 }
               } else if (typeof obj === 'object') {
+                // Chrome 标准结构
                 if (obj.children && Array.isArray(obj.children) && obj.children.length > 0) return obj.children;
                 if (obj.roots?.bookmark_bar?.children) return obj.roots.bookmark_bar.children;
                 
@@ -265,20 +263,20 @@ export function ImportCollectionDialog({
 
         console.log("Parsed Root Nodes:", rootNodes);
 
-        // 使用工具函数扁平化树结构
+        // 使用工具函数处理树结构
         const flattenedBookmarks = createFlattenBookmarks(rootNodes || []);
-
         const totalBookmarks = flattenedBookmarks.length;
 
         if (totalBookmarks === 0) {
             toast({
               variant: "destructive",
               title: "Import Error",
-              description: "No bookmarks found. Please check the file format.",
+              description: "No bookmarks found. Please check if the JSON file format is supported.",
             });
             return;
         }
 
+        // 批量上传通用数据
         for (let i = 0; i < totalBookmarks; i += batchSize) {
           const batchStartTime = Date.now();
           const batchBookmarks = flattenedBookmarks.slice(i, i + batchSize);
@@ -293,26 +291,13 @@ export function ImportCollectionDialog({
 
           const response: any = await fetch("/api/collections/import", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestData),
           });
 
           const data: any = await response.json();
           const batchEndTime = Date.now();
           const batchDuration = (batchEndTime - batchStartTime) / 1000;
-          const remainingBatches = Math.ceil(
-            (totalBookmarks - i - batchSize) / batchSize
-          );
-          const estimatedRemainingTime = batchDuration * remainingBatches;
-
-          console.log(`Batch imported`, data);
-
-          toast({
-            title: "Import Progress",
-            description: `Batch ${Math.floor(i / batchSize) + 1} imported (${batchDuration.toFixed(2)}s).`,
-          });
 
           if (!response.ok) {
             toast({
@@ -322,6 +307,13 @@ export function ImportCollectionDialog({
             });
             return;
           }
+          
+          // Progress toast
+          const remainingBatches = Math.ceil((totalBookmarks - i - batchSize) / batchSize);
+          toast({
+            title: "Import Progress",
+            description: `Batch ${Math.floor(i / batchSize) + 1} imported. Remaining: ${remainingBatches} batches.`,
+          });
 
           if (i === 0) {
             importedCollectionId = data.collectionId;
@@ -357,7 +349,7 @@ export function ImportCollectionDialog({
       toast({
         variant: "destructive",
         title: "Import Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : "An error occurred",
       });
     } finally {
       setLoading(false);
