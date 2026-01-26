@@ -7,7 +7,10 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { BookmarkGrid } from "@/components/bookmark/BookmarkGrid";
 import { Header } from "@/components/website/header";
 
-import { Footer } from "@/components/website/footer";
+// ================= 修改点 1: 注释掉 Footer 引用 =================
+// import { Footer } from "@/components/website/footer";
+// ==============================================================
+
 import { TopBanner } from "@/components/website/top-banner";
 
 import { useSession } from "next-auth/react";
@@ -33,7 +36,7 @@ function SearchParamsComponent() {
   const [collectionName, setCollectionName] = useState<string>("");
   const [collections, setCollections] = useState<Collection[]>([]);
   
-  // ================= 修改点 1: 新增透明度 state (默认 0.85) =================
+  // ================= 修改点: 新增透明度 state (默认 0.85) =================
   const [bgImage, setBgImage] = useState<string>("");
   const [bgOpacity, setBgOpacity] = useState<number>(0.85); 
   // =========================================================================
@@ -48,7 +51,7 @@ function SearchParamsComponent() {
     router.push(`${pathname}?${currentSearchParams.toString()}`);
   }
 
-  // ================= 修改点 2: 更新获取背景设置逻辑 =================
+  // ================= 修改点: 更新获取背景设置逻辑 =================
   useEffect(() => {
     const fetchBackground = async () => {
       try {
@@ -162,7 +165,7 @@ function SearchParamsComponent() {
         backgroundAttachment: "fixed", // 固定背景，产生视差效果
       }}
     >
-      {/* ================= 修改点 3: 动态应用透明度遮罩 ================= */}
+      {/* ================= 修改点: 动态应用透明度遮罩 ================= */}
       {/* 移除硬编码的 bg-background/85，改用 style 动态设置背景色透明度 */}
       <div 
         className={`flex min-h-screen flex-col ${bgImage ? 'backdrop-blur-sm' : ''}`}
@@ -210,9 +213,13 @@ function SearchParamsComponent() {
                  </Card>
                ))}
              </div>
-             <div className="mt-20">
+
+             {/* ================= 修改点 2: 注释掉底部 Footer (Discover 页) ================= */}
+             {/* <div className="mt-20">
                 <Footer />
-             </div>
+             </div> */}
+             {/* ============================================================================ */}
+
            </div>
           ) : (
             <SidebarProvider>
@@ -253,7 +260,11 @@ function SearchParamsComponent() {
                       }
                       refreshTrigger={refreshTrigger}
                     />
-                    <Footer />
+                    
+                    {/* ================= 修改点 3: 注释掉底部 Footer (列表页) ================= */}
+                    {/* <Footer /> */}
+                    {/* ======================================================================= */}
+
                   </div>
                 </div>
                 
