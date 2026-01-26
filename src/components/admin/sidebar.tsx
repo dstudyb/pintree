@@ -5,14 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { 
-  LayoutDashboard, 
   Library, 
   Bookmark, 
   Settings,
   LogOut,
   ChevronDown,
   ChevronRight
-  // 1. 移除了 RefreshCw，因为我们不需要图标了
 } from "lucide-react";
 
 import {
@@ -27,13 +25,12 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { Skeleton } from "../ui/skeleton";
-import WebDAVSettings from "../WebDAV/WebDAVSettings"; 
+
+// 移除 WebDAVSettings 弹窗组件引用
+// import WebDAVSettings from "../WebDAV/WebDAVSettings"; 
 
 const menuItems = [
   {
@@ -60,9 +57,10 @@ const menuItems = [
         label: "SEO Settings",
       },
       {
-        href: "#webdav",
+        // 修改跳转路径，指向新页面
+        href: "/admin/settings/webdav",
         label: "WebDAV Settings",
-        isWebDAV: true,
+        // 移除 isWebDAV 标记
       },
     ]
   },
@@ -71,7 +69,9 @@ const menuItems = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(["/admin/settings"]));
-  const [isWebDAVOpen, setIsWebDAVOpen] = useState(false);
+  
+  // 移除弹窗状态
+  // const [isWebDAVOpen, setIsWebDAVOpen] = useState(false);
 
   const toggleExpand = (href: string) => {
     setExpandedItems(prev => {
@@ -85,7 +85,7 @@ export function AdminSidebar() {
     });
   };
 
-  const { images, isLoading, error } = useSettingImages('logoUrl');
+  const { images, isLoading } = useSettingImages('logoUrl');
 
   return (
     <>
@@ -139,19 +139,7 @@ export function AdminSidebar() {
                       {expandedItems.has(item.href) && (
                         <div className="pl-6 mt-1 space-y-1">
                           {item.subItems.map((subItem) => (
-                            subItem.isWebDAV ? (
-                              // 2. 修正后的 WebDAV 按钮：移除了图标，Class完全对齐
-                              <SidebarMenuButton
-                                key={subItem.href}
-                                onClick={() => setIsWebDAVOpen(true)}
-                                size="sm"
-                                // 使用与下方 Link 按钮完全一致的 className
-                                className="text-sm text-muted-foreground hover:bg-gray-200/50 active:bg-gray-200/50 w-full justify-start"
-                              >
-                                {subItem.label}
-                              </SidebarMenuButton>
-                            ) : (
-                              <SidebarMenuButton
+                            <SidebarMenuButton
                                 key={subItem.href}
                                 asChild
                                 isActive={pathname === subItem.href}
@@ -161,8 +149,7 @@ export function AdminSidebar() {
                                 <Link href={subItem.href}>
                                   {subItem.label}
                                 </Link>
-                              </SidebarMenuButton>
-                            )
+                            </SidebarMenuButton>
                           ))}
                         </div>
                       )}
@@ -200,15 +187,7 @@ export function AdminSidebar() {
         <SidebarRail />
       </Sidebar>
 
-      {/* 全局弹窗容器 */}
-      {isWebDAVOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="absolute inset-0" onClick={() => setIsWebDAVOpen(false)} />
-          <div className="relative w-full max-w-md animate-in zoom-in duration-200">
-            <WebDAVSettings onClose={() => setIsWebDAVOpen(false)} />
-          </div>
-        </div>
-      )}
+      {/* 移除了整个 WebDAV 弹窗 JSX 结构 */}
     </>
   );
 }
