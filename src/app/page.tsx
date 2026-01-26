@@ -157,27 +157,21 @@ function SearchParamsComponent() {
   return (
     <div 
       // ================= 修改点 5: 锁定页面高度禁止整体滚动 =================
-      // 原 min-h-screen 改为 h-screen, 并添加 overflow-hidden
       className="flex h-screen w-full flex-col overflow-hidden bg-background transition-all duration-500 ease-in-out"
       // ======================================================================
       style={{
-        // 如果有背景图，应用背景图；否则保持默认
         backgroundImage: bgImage ? `url(${bgImage})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundAttachment: "fixed", // 固定背景，产生视差效果
+        backgroundAttachment: "fixed", 
       }}
     >
       {/* ================= 修改点: 动态应用透明度遮罩 ================= */}
-      {/* 移除硬编码的 bg-background/85，改用 style 动态设置背景色透明度 */}
       <div 
         // ================= 修改点 6: 遮罩层也跟随锁定高度 =================
-        // 原 min-h-screen 改为 h-full
         className={`flex h-full flex-col ${bgImage ? 'backdrop-blur-sm' : ''}`}
         // =================================================================
         style={{
-          // 使用 Shadcn UI 标准 CSS 变量动态计算带透明度的背景色
-          // 这样既能保持深色/浅色模式适配，又能控制遮罩浓度
           backgroundColor: bgImage ? `hsl(var(--background) / ${bgOpacity})` : undefined
         }}
       >
@@ -186,7 +180,6 @@ function SearchParamsComponent() {
         <TopBanner />
         
         {/* ================= 修改点 7: 容器 overflow 限制 ================= */}
-        {/* 添加 overflow-hidden 禁止此容器产生滚动条 */}
         <div className="flex flex-1 overflow-hidden">
         {/* ================================================================ */}
           {!isLoading && collections.length > 0 && !selectedCollectionId ? (
@@ -263,9 +256,10 @@ function SearchParamsComponent() {
                   
                   <div 
                     id="main-scroll-container" 
-                    // ================= 修改点 4: 添加 pb-15 防止内容贴底 =================
-                    className="flex-1 overflow-y-auto pb-15"
-                    // =====================================================================
+                    // ================= 修改点 4: 修复底部留白 (使用有效的 pb-24) =================
+                    // pb-24 (96px) 是标准 Tailwind 类，确保底部有足够留白
+                    className="flex-1 overflow-y-auto pb-24"
+                    // ===========================================================================
                   >
                     <BookmarkGrid
                       key={`${selectedCollectionId}-${currentFolderId}`}
