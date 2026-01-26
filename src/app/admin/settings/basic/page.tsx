@@ -33,18 +33,17 @@ import {
 import { useRouter } from "next/navigation";
 
 import { revalidateData } from "@/actions/revalidate-data";
-// ================= 修改点 1: 引入图标 =================
 import { Image as ImageIcon } from "lucide-react"; 
-// ====================================================
 
 export default function BasicSettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"basicInfo" |"statistics" | "footerSettings" | "socialMedia">("basicInfo");
   const [loading, setLoading] = useState(false);
   
-  // ================= 修改点 2: 新增背景图状态 =================
   const [bgUrl, setBgUrl] = useState("");
-  // ==========================================================
+  // ================= 修改点 1: 新增透明度状态 (默认85) =================
+  const [bgOpacity, setBgOpacity] = useState(85);
+  // ===================================================================
 
   const [settings, setSettings] = useState({
     websiteName: "",
@@ -86,13 +85,15 @@ export default function BasicSettingsPage() {
         );
         setSettings((prev) => ({ ...prev, ...sanitizedData }));
 
-        // ================= 修改点 3: 加载背景图设置 =================
+        // ================= 修改点 2: 加载背景图和透明度 =================
         const bgResponse = await fetch("/api/settings/background");
         if (bgResponse.ok) {
           const bgData = await bgResponse.json();
           if (bgData.url) setBgUrl(bgData.url);
+          // 如果有透明度值，更新状态
+          if (bgData.opacity !== undefined) setBgOpacity(Number(bgData.opacity));
         }
-        // ==========================================================
+        // ==============================================================
 
       } catch (error) {
         console.error("Load settings error:", error);
@@ -182,15 +183,18 @@ export default function BasicSettingsPage() {
           );
         }
 
-        // ================= 修改点 4: 保存背景图设置 =================
+        // ================= 修改点 3: 同时保存 URL 和 透明度 =================
         saveSettingPromises.push(
           fetch("/api/settings/background", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: bgUrl }),
+            body: JSON.stringify({ 
+              url: bgUrl, 
+              opacity: bgOpacity // 发送透明度
+            }),
           })
         );
-        // ==========================================================
+        // =================================================================
       }
    
       // 添加基本设置保存到 saveSettingPromises
@@ -272,9 +276,9 @@ export default function BasicSettingsPage() {
                       <FaviconUploader />
                     </div>
 
-                    {/* ================= 修改点 5: 背景图设置 UI ================= */}
+                    {/* ================= 修改点 4: 背景图和透明度设置 UI ================= */}
                     <div className="grid gap-2 pt-4 border-t mt-2">
-                      <Label htmlFor="bgUrl">Main Page Background URL</Label>
+                      <Label htmlFor="bgUrl">Main Page Background</Label>
                       <div className="relative">
                         <ImageIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -289,20 +293,58 @@ export default function BasicSettingsPage() {
                         Enter a direct link to an image (JPG, PNG, WebP). Leave empty to use default theme.
                       </p>
                       
-                      {/* 可选：简单的图片预览 */}
+                      {/* 透明度滑块 (仅当有背景图时显示) */}
                       {bgUrl && (
-                        <div className="mt-2 border rounded-md overflow-hidden h-32 relative bg-muted w-full max-w-md">
+                        <div className="mt-4 p-4 bg-slate-50 rounded-lg border space-y-3">
+                           <div className="flex justify-between items-center">
+                              <Label htmlFor="opacity" className="text-sm font-medium">
+                                Overlay Intensity (Mask)
+                              </Label>
+                              <span className="text-sm font-bold bg-white px-2 py-1 rounded border">
+                                {bgOpacity}%
+                              </span>
+                           </div>
+                           
+                           <input
+                              type="range"
+                              id="opacity"
+                              min="0"
+                              max="100"
+                              step="5"
+                              value={bgOpacity}
+                              onChange={(e) => setBgOpacity(Number(e.target.value))}
+                              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                           />
+                           
+                           <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                             <span>0% (Clear Image)</span>
+                             <span>100% (Solid Color)</span>
+                           </div>
+                        </div>
+                      )}
+
+                      {/* 预览区域 */}
+                      {bgUrl && (
+                        <div className="mt-2 border rounded-md overflow-hidden h-40 relative bg-muted w-full">
+                          {/* 背景层 */}
                           <div 
                             className="absolute inset-0 bg-cover bg-center"
                             style={{ backgroundImage: `url(${bgUrl})` }}
                           />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-1 text-xs text-center">
-                            Preview
+                          {/* 遮罩层 - 使用背景色 + 透明度 */}
+                          <div 
+                             className="absolute inset-0 bg-white dark:bg-black transition-all duration-300"
+                             style={{ opacity: bgOpacity / 100 }}
+                          />
+                          {/* 模拟文字 */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                             <div className="text-xl font-bold text-foreground z-10">Preview Title</div>
+                             <div className="text-sm text-muted-foreground z-10">Adjust opacity to make text readable</div>
                           </div>
                         </div>
                       )}
                     </div>
-                    {/* ========================================================== */}
+                    {/* ===================================================================== */}
 
                   </CardContent>
                 </Card>
