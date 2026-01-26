@@ -19,6 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// ================= 修改点 1: 引入图标和工具函数 =================
+import { cn } from "@/lib/utils";
+import { 
+  Folder as FolderIcon,
+  Film, Music, Gamepad2, Code2, Book, Image as ImageIcon, 
+  Monitor, Globe, Coffee, Briefcase, GraduationCap, 
+  ShoppingCart, Cloud
+} from "lucide-react";
+// ==============================================================
 
 interface Folder {
   id: string;
@@ -37,6 +46,24 @@ interface EditFolderDialogProps {
   onSuccess?: () => void;
   collectionId: string;
 }
+
+// ================= 修改点 2: 定义图标预设列表 =================
+const ICON_PRESETS = [
+  { id: "movie", icon: Film, label: "影视" },
+  { id: "music", icon: Music, label: "音乐" },
+  { id: "game", icon: Gamepad2, label: "游戏" },
+  { id: "code", icon: Code2, label: "代码" },
+  { id: "book", icon: Book, label: "书籍" },
+  { id: "image", icon: ImageIcon, label: "图片" },
+  { id: "tech", icon: Monitor, label: "科技" },
+  { id: "web", icon: Globe, label: "网页" },
+  { id: "life", icon: Coffee, label: "生活" },
+  { id: "work", icon: Briefcase, label: "工作" },
+  { id: "study", icon: GraduationCap, label: "学习" },
+  { id: "shop", icon: ShoppingCart, label: "购物" },
+  { id: "cloud", icon: Cloud, label: "云端" },
+];
+// ==========================================================
 
 export function EditFolderDialog({
   folder,
@@ -119,7 +146,7 @@ export function EditFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Folder</DialogTitle>
           <DialogDescription>
@@ -139,16 +166,51 @@ export function EditFolderDialog({
             />
           </div>
 
+          {/* ================= 修改点 3: 替换 Icon Input 为选择器 ================= */}
           <div className="space-y-2">
-            <Label>Icon URL</Label>
-            <Input
-              value={formData.icon}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, icon: e.target.value }))
-              }
-              placeholder="https://example.com/icon.png"
-            />
+            <Label>Icon</Label>
+            <div className="p-3 border rounded-md bg-muted/20">
+              <div className="grid grid-cols-6 gap-2 mb-3">
+                {ICON_PRESETS.map((preset) => (
+                  <div
+                    key={preset.id}
+                    onClick={() => setFormData(prev => ({ ...prev, icon: preset.id }))}
+                    className={cn(
+                      "cursor-pointer flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:bg-muted bg-background",
+                      formData.icon === preset.id 
+                        ? "border-primary bg-primary/10 text-primary ring-1 ring-primary" 
+                        : "border-muted-foreground/20 text-muted-foreground"
+                    )}
+                    title={preset.label}
+                  >
+                    <preset.icon className="h-5 w-5" />
+                  </div>
+                ))}
+                {/* 清除/默认按钮 */}
+                <div
+                    onClick={() => setFormData(prev => ({ ...prev, icon: "" }))}
+                    className={cn(
+                      "cursor-pointer flex flex-col items-center justify-center p-2 rounded-lg border transition-all hover:bg-muted bg-background",
+                      !formData.icon ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-muted-foreground/20"
+                    )}
+                    title="Default"
+                >
+                    <FolderIcon className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Or URL:</span>
+                <Input 
+                  value={formData.icon || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
+                  placeholder="https://..." 
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
           </div>
+          {/* =================================================================== */}
 
           <div className="space-y-2">
             <Label>Sort Order</Label>
