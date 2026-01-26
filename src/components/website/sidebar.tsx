@@ -239,21 +239,35 @@ export function WebsiteSidebar({
                 ) : (
                   <div className="w-4" />
                 )}
-                {expandedFolders.has(folder.id) ? (
-                  <FolderOpen
-                    className={cn(
-                      "h-4 w-4 shrink-0 fill-current",
-                      currentFolderId === folder.id && "text-current"
-                    )}
+                
+                {/* ================= 修改点: 支持自定义图标渲染 ================= */}
+                {folder.icon ? (
+                  // 如果有 icon 字段，显示图片
+                  <img
+                    src={folder.icon}
+                    alt={folder.name}
+                    className="h-4 w-4 shrink-0 object-contain"
                   />
                 ) : (
-                  <Folder
-                    className={cn(
-                      "h-4 w-4 shrink-0 fill-current",
-                      currentFolderId === folder.id && "text-current"
-                    )}
-                  />
+                  // 否则显示默认文件夹图标
+                  expandedFolders.has(folder.id) ? (
+                    <FolderOpen
+                      className={cn(
+                        "h-4 w-4 shrink-0 fill-current",
+                        currentFolderId === folder.id && "text-current"
+                      )}
+                    />
+                  ) : (
+                    <Folder
+                      className={cn(
+                        "h-4 w-4 shrink-0 fill-current",
+                        currentFolderId === folder.id && "text-current"
+                      )}
+                    />
+                  )
                 )}
+                {/* ============================================================ */}
+
               </div>
               <span className="truncate">
                 {folder.name}
