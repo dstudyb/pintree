@@ -34,12 +34,18 @@ interface MoveBookmarkDialogProps {
   onOpenChange?: (open: boolean) => void;
   // 如果作为 DropdownMenuItem 使用，我们需要特殊处理
   asDropdownItem?: boolean; 
+  // ================= 修改点 1: 添加 onSuccess 回调定义 =================
+  onSuccess?: () => void;
+  // ===================================================================
 }
 
 export function MoveBookmarkDialog({
   bookmarkId,
   currentFolderId,
   asDropdownItem = false,
+  // ================= 修改点 2: 解构 onSuccess =================
+  onSuccess,
+  // =========================================================
 }: MoveBookmarkDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,6 +71,11 @@ export function MoveBookmarkDialog({
       if (result.success) {
         toast.success("Bookmark moved successfully");
         setOpen(false);
+        // ================= 修改点 3: 移动成功后调用 onSuccess =================
+        if (onSuccess) {
+          onSuccess();
+        }
+        // ====================================================================
       } else {
         throw new Error(result.error);
       }
@@ -141,8 +152,9 @@ export function MoveBookmarkDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-            <FolderInput className="mr-2 h-4 w-4" />
+            {/* ================= 修改点 4: 删除了图标，只保留文字 ================= */}
             Move to Folder
+            {/* ================================================================ */}
           </DropdownMenuItem>
         </DialogTrigger>
         {Content}
