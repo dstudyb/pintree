@@ -10,7 +10,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Home // ================= 修改点 1: 引入 Home 图标 =================
 } from "lucide-react";
 
 import {
@@ -57,10 +58,8 @@ const menuItems = [
         label: "SEO Settings",
       },
       {
-        // 修改跳转路径，指向新页面
         href: "/admin/settings/webdav",
         label: "WebDAV Settings",
-        // 移除 isWebDAV 标记
       },
     ]
   },
@@ -173,6 +172,18 @@ export function AdminSidebar() {
 
         <SidebarFooter>
           <SidebarMenu>
+            
+            {/* ================= 修改点 2: 添加返回主页按钮 ================= */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Back to Website">
+                <Link href="/">
+                  <Home className="h-4 w-4" />
+                  <span>Back to Website</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {/* ========================================================== */}
+
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={() => signOut({ callbackUrl: "/" })}
