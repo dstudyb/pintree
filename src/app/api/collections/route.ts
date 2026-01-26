@@ -6,33 +6,37 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 export async function GET(request: Request) {
   try {
+    // ================= 修改点 1: 获取 Session 以判断用户权限 =================
+    const session = await getServerSession(authOptions);
     const { searchParams } = new URL(request.url);
-    const publicOnly = searchParams.get('publicOnly') === 'true';
+    const publicOnlyParam = searchParams.get('publicOnly') === 'true';
     
-    // Retrieve collections list, optionally filtering for public collections
+    let whereClause: any = {};
+
+    if (!session) {
+      // 场景 A: 未登录用户 -> 强制只能查看公开集合
+      whereClause = { isPublic: true };
+    } else {
+      // 场景 B: 已登录用户
+      if (publicOnlyParam) {
+        // 如果前端显式请求只看公开的，则过滤
+        whereClause = { isPublic: true };
+      } else {
+        // 否则，查看所有集合 (包括私有)
+        whereClause = {};
+      }
+    }
+    // =====================================================================
+
+    // Retrieve collections list
     const collections = await prisma.collection.findMany({
-      where: publicOnly ? {
-        isPublic: true
-      } : undefined,
+      where: whereClause, // 使用构建好的查询条件
       orderBy: {
         sortOrder: "asc"
       }
     });
 
-    // Return data structure:
-    // An array of collection objects with the following properties:
-    // {
-    //   id: string,           // Unique identifier of the collection
-    //   name: string,         // Name of the collection
-    //   description?: string, // Optional description of the collection
-    //   icon?: string,        // Optional icon for the collection
-    //   isPublic: boolean,    // Indicates if the collection is publicly visible
-    //   viewStyle: string,    // Display style of the collection
-    //   sortStyle: string,    // Sorting method for items in the collection
-    //   sortOrder: number,    // Numerical order for sorting collections
-    //   slug: string,         // URL-friendly name of the collection
-    //   totalBookmarks: number // Total number of bookmarks in the collection
-    // }
+    // Return data structure... (后续代码保持不变)
     const collectionsWithBookmarkCount = await Promise.all(
       collections.map(async (collection) => {
         const folders = await prisma.folder.findMany({
@@ -70,8 +74,10 @@ export async function GET(request: Request) {
   }
 }
 
+// POST 方法保持不变...
 export async function POST(request: Request) {
-  try {
+    // ... (保持您原有的 POST 代码不变)
+    try {
     const session = await getServerSession(authOptions);
 
     if (!session) {
@@ -80,25 +86,6 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
-
-    // 检查是否已经存在任何集合
-    // 已删除的代码
-/*
-const existingCollections = await prisma.collection.findMany({
-  take: 1,
-});
-
-if (existingCollections.length > 0) {
-  return NextResponse.json(
-    {
-      error: "A collection already exists. Cannot create another collection.",
-    },
-    { status: 403 }
-  );
-}
-*/
-    //删除的上方内容
-
 
     const body = await request.json();
     const { name, description, icon, isPublic, viewStyle, sortStyle, sortOrder } = body;
