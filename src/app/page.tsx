@@ -9,9 +9,10 @@ import { Header } from "@/components/website/header";
 
 import { Footer } from "@/components/website/footer";
 import { TopBanner } from "@/components/website/top-banner";
-// ================= 修改点 1: 引入 SiteHeader 组件 =================
-import { SiteHeader } from "@/components/website/site-header";
-// ================================================================
+
+// ================= 修改点 1: 移除 SiteHeader 的引入 (不再需要顶部导航栏) =================
+// import { SiteHeader } from "@/components/website/site-header";
+// ====================================================================================
 
 import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
@@ -118,9 +119,9 @@ function SearchParamsComponent() {
     <div className="flex min-h-screen flex-col bg-background">
       <TopBanner />
       
-      {/* ================= 修改点 2: 放置 SiteHeader (包含 CollectionsNav) ================= */}
-      <SiteHeader collections={collections} />
-      {/* ============================================================================== */}
+      {/* ================= 修改点 2: 移除了 SiteHeader 组件 ================= */}
+      {/* <SiteHeader collections={collections} /> */} 
+      {/* ================================================================== */}
       
       <div className="flex flex-1">
         {!isLoading && collections.length > 0 && !selectedCollectionId ? (
@@ -181,14 +182,15 @@ function SearchParamsComponent() {
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
                   onBookmarkAdded={refreshData}
+                  // ================= 修改点 3: 将 collections 传给 Header =================
+                  collections={collections}
+                  // ======================================================================
                 />
                 
-                {/* ================= 修改点 3: 添加 ID 以支持滚动回到顶部 ================= */}
                 <div 
                   id="main-scroll-container" 
                   className="flex-1 overflow-y-auto"
                 >
-                {/* ================================================================= */}
                   <BookmarkGrid
                     key={`${selectedCollectionId}-${currentFolderId}`}
                     collectionId={selectedCollectionId}
@@ -200,14 +202,11 @@ function SearchParamsComponent() {
                     }
                     refreshTrigger={refreshTrigger}
                   />
-                  {/* 将 Footer 放入滚动区域内，体验更好 */}
                   <Footer />
                 </div>
               </div>
               
-              {/* ================= 修改点 4: 传入容器 ID ================= */}
               <BackToTop scrollContainerId="main-scroll-container" />
-              {/* ===================================================== */}
             </>
           ) : (
             <div className="flex flex-1">
