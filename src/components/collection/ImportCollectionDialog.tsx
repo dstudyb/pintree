@@ -154,13 +154,13 @@ export function ImportCollectionDialog({
         for (let i = 0; i < totalBookmarks; i += batchSize) {
           const batchStartTime = Date.now();
           const batchBookmarks = jsonData.bookmarks.slice(i, i + batchSize);
-      
+       
           const requestData = {
             bookmarks: batchBookmarks,
             collectionId: importedCollectionId, // Use the collection ID created when importing folders
             folderMap: folderMap, // Use folder mapping
           };
-      
+       
           const response: any = await fetch("/api/collections/import-recover-data/recover-bookmarks", {
             method: "POST",
             headers: {
@@ -168,13 +168,13 @@ export function ImportCollectionDialog({
             },
             body: JSON.stringify(requestData),
           });
-      
+       
           const data: any = await response.json();
           const batchEndTime = Date.now();
           const batchDuration = (batchEndTime - batchStartTime) / 1000; // seconds
           const remainingBatches = Math.ceil((totalBookmarks - i - batchSize) / batchSize);
           const estimatedRemainingTime = batchDuration * remainingBatches;
-      
+       
           if (!response.ok) {
             toast({
               variant: "destructive",
@@ -183,7 +183,7 @@ export function ImportCollectionDialog({
             });
             return;
           }
-      
+       
           // Show import progress
           toast({
             title: "Bookmark Import Progress",
@@ -194,8 +194,50 @@ export function ImportCollectionDialog({
 
         // Import completed
       } else {
-        const flattenedBookmarks = createFlattenBookmarks(jsonData[0].children);
+        // ================= 修改点: 增加对不同 JSON 结构的安全解析逻辑 =================
+        let rootNodes = [];
+
+        // 1. 如果是数组结构 (常见于 Pintree 插件或某些导出)
+        if (Array.isArray(jsonData)) {
+          if (jsonData.length > 0 && jsonData[0] && jsonData[0].children) {
+             // 结构: [{ children: [...] }]
+             rootNodes = jsonData[0].children;
+          } else {
+             // 结构: [...] (本身就是节点数组)
+             rootNodes = jsonData;
+          }
+        } 
+        // 2. 如果是对象结构 (常见于 Chrome 原生备份或普通 JSON)
+        else if (typeof jsonData === 'object' && jsonData !== null) {
+          if (jsonData.children) {
+             // 结构: { children: [...] }
+             rootNodes = jsonData.children;
+          } else if (jsonData.roots && jsonData.roots.bookmark_bar) {
+             // 结构: Chrome 备份格式 { roots: { bookmark_bar: { children: ... } } }
+             rootNodes = jsonData.roots.bookmark_bar.children || [];
+          } else {
+             // 未知结构，尝试作为单个节点处理或忽略
+             rootNodes = []; 
+             console.warn("Unknown JSON structure for bookmarks");
+          }
+        }
+
+        // 使用处理过的 rootNodes，并确保它不为 undefined
+        const flattenedBookmarks = createFlattenBookmarks(rootNodes || []);
+        // =========================================================================
+
         const totalBookmarks = flattenedBookmarks.length;
+
+        // 如果解析后没有书签，提示用户
+        if (totalBookmarks === 0) {
+            toast({
+              variant: "destructive",
+              title: "Import Error",
+              description: "No bookmarks found in the uploaded file. Please check the file format.",
+            });
+            return;
+        }
+
         for (let i = 0; i < totalBookmarks; i += batchSize) {
           const batchStartTime = Date.now();
           const batchBookmarks = flattenedBookmarks.slice(i, i + batchSize);
