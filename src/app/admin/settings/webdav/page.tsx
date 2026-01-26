@@ -13,19 +13,18 @@ import { AdminHeader } from "@/components/admin/header";
 
 import WebDAVConfigCard from "./WebDAVConfigCard";
 import ManualSyncCard from "./ManualSyncCard";
-
 import { revalidateData } from "@/actions/revalidate-data";
 
 export default function WebDAVSettingsPage() {
   const [activeTab, setActiveTab] = useState<"configuration" | "actions">("configuration");
   const [loading, setLoading] = useState(false);
   
-  // 状态管理：这里存储的是表单数据
   const [settings, setSettings] = useState({
     webdav_url: "",
     webdav_username: "",
     webdav_password: "",
-    webdav_path: "/pintree/bookmarks.json", // 默认值
+    webdav_path: "/pintree/bookmarks.json",
+    webdav_autosync: "false", // 默认关闭
   });
 
   // 1. 加载设置
@@ -38,12 +37,13 @@ export default function WebDAVSettingsPage() {
         
         const data = await response.json();
         
-        // 映射数据到 state
         setSettings({
           webdav_url: data.webdav_url ?? "",
           webdav_username: data.webdav_username ?? "",
           webdav_password: data.webdav_password ?? "",
           webdav_path: data.webdav_path ?? "/pintree/bookmarks.json",
+          // 读取数据库中的开关状态，如果没有则默认为 "false"
+          webdav_autosync: data.webdav_autosync ?? "false",
         });
       } catch (error) {
         console.error(error);
@@ -55,13 +55,21 @@ export default function WebDAVSettingsPage() {
     loadSettings();
   }, []);
 
-  // 2. 处理输入
+  // 2. 处理普通输入
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSettings((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 3. 保存设置
+  // 3. 处理 Switch 开关 (新增)
+  const handleSwitchChange = (checked: boolean) => {
+    setSettings((prev) => ({ 
+        ...prev, 
+        webdav_autosync: checked ? "true" : "false" 
+    }));
+  };
+
+  // 4. 保存设置
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'actions') return;
@@ -109,6 +117,7 @@ export default function WebDAVSettingsPage() {
                 <WebDAVConfigCard
                   settings={settings}
                   handleChange={handleChange}
+                  onSwitchChange={handleSwitchChange} // 传递处理函数
                 />
               </div>
             </TabsContent>
@@ -123,7 +132,6 @@ export default function WebDAVSettingsPage() {
             </TabsContent>
           </Tabs>
 
-          {/* 只有在配置页显示保存按钮 */}
           {activeTab === 'configuration' && (
             <div className="flex justify-end">
               <Button type="submit" disabled={loading}>
