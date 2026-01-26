@@ -10,9 +10,9 @@ import { Header } from "@/components/website/header";
 import { Footer } from "@/components/website/footer";
 import { TopBanner } from "@/components/website/top-banner";
 
-// ================= 修改点 1: 移除 SiteHeader 的引入 (不再需要顶部导航栏) =================
-// import { SiteHeader } from "@/components/website/site-header";
-// ====================================================================================
+// ================= 修改点 1: 引入 useSession =================
+import { useSession } from "next-auth/react";
+// ===========================================================
 
 import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
@@ -26,6 +26,10 @@ function SearchParamsComponent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const collectionSlug = searchParams.get("collection");
+
+  // ================= 修改点 2: 获取 session 状态 =================
+  const { status } = useSession();
+  // =============================================================
 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -49,7 +53,16 @@ function SearchParamsComponent() {
     const fetchCollectionsAndSetDefault = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/collections?publicOnly=true");
+        
+        // ================= 修改点 3: 根据登录状态决定 API URL =================
+        // 如果已登录，不传 publicOnly 参数（获取全部）；如果未登录，传 publicOnly=true
+        const apiUrl = status === "authenticated" 
+          ? "/api/collections" 
+          : "/api/collections?publicOnly=true";
+        
+        const response = await fetch(apiUrl);
+        // ====================================================================
+        
         const data = await response.json();
         setCollections(data);
 
@@ -81,8 +94,13 @@ function SearchParamsComponent() {
       }
     };
 
-    fetchCollectionsAndSetDefault();
-  }, [searchParams]);
+    // ================= 修改点 4: 只有当 session 加载完成后才请求 =================
+    if (status !== "loading") {
+      fetchCollectionsAndSetDefault();
+    }
+    // =========================================================================
+    
+  }, [searchParams, status]); // ================= 修改点 5: 添加 status 依赖 =================
 
 
 
@@ -118,10 +136,6 @@ function SearchParamsComponent() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopBanner />
-      
-      {/* ================= 修改点 2: 移除了 SiteHeader 组件 ================= */}
-      {/* <SiteHeader collections={collections} /> */} 
-      {/* ================================================================== */}
       
       <div className="flex flex-1">
         {!isLoading && collections.length > 0 && !selectedCollectionId ? (
@@ -182,9 +196,7 @@ function SearchParamsComponent() {
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
                   onBookmarkAdded={refreshData}
-                  // ================= 修改点 3: 将 collections 传给 Header =================
                   collections={collections}
-                  // ======================================================================
                 />
                 
                 <div 
