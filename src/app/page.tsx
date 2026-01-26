@@ -9,6 +9,9 @@ import { Header } from "@/components/website/header";
 
 import { Footer } from "@/components/website/footer";
 import { TopBanner } from "@/components/website/top-banner";
+// ================= 修改点 1: 引入 SiteHeader 组件 =================
+import { SiteHeader } from "@/components/website/site-header";
+// ================================================================
 
 import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
@@ -59,21 +62,16 @@ function SearchParamsComponent() {
             setCollectionName(currentCollection.name);
           }
         } else {
-          // ================= 修改点: 智能判断数量 (1个自动进，多个手动选) =================
+          // 智能判断数量 (1个自动进，多个手动选)
           if (data.length === 1) {
-             // 场景 A: 只有一个集合 -> 自动选中，直接进入
              const singleCollection = data[0];
              setSelectedCollectionId(singleCollection.id);
              setCollectionName(singleCollection.name);
-             
-             // (可选) 更新 URL，让地址栏带上 ?collection=slug，保持状态一致
              routeToFolderInCollection(singleCollection);
           } else {
-             // 场景 B: 0个 或 2个以上集合 -> 清空选中，显示列表页
              setSelectedCollectionId("");
              setCollectionName("");
           }
-          // ========================================================================
         }
       } catch (error) {
         console.error("获取 collections 失败:", error);
@@ -83,7 +81,7 @@ function SearchParamsComponent() {
     };
 
     fetchCollectionsAndSetDefault();
-  }, [searchParams]); // 依赖项保持不变，内部逻辑处理自动跳转
+  }, [searchParams]);
 
 
 
@@ -119,8 +117,12 @@ function SearchParamsComponent() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopBanner />
+      
+      {/* ================= 修改点 2: 放置 SiteHeader (包含 CollectionsNav) ================= */}
+      <SiteHeader collections={collections} />
+      {/* ============================================================================== */}
+      
       <div className="flex flex-1">
-        {/* 这里逻辑无需修改，依然依赖 selectedCollectionId 是否有值来决定显示 Sidebar 还是 CardList */}
         {!isLoading && collections.length > 0 && !selectedCollectionId ? (
            <div className="flex-1 container mx-auto px-4 py-12">
            <div className="text-center mb-12">
@@ -174,13 +176,19 @@ function SearchParamsComponent() {
                 onCollectionChange={handleCollectionChange}
                 onFolderSelect={handleFolderSelect}
               />
-              <div className="flex flex-1 flex-col space-y-8">
+              <div className="flex flex-1 flex-col space-y-8 h-full overflow-hidden">
                 <Header
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
                   onBookmarkAdded={refreshData}
                 />
-                <div className="flex-1 overflow-y-auto">
+                
+                {/* ================= 修改点 3: 添加 ID 以支持滚动回到顶部 ================= */}
+                <div 
+                  id="main-scroll-container" 
+                  className="flex-1 overflow-y-auto"
+                >
+                {/* ================================================================= */}
                   <BookmarkGrid
                     key={`${selectedCollectionId}-${currentFolderId}`}
                     collectionId={selectedCollectionId}
@@ -192,10 +200,14 @@ function SearchParamsComponent() {
                     }
                     refreshTrigger={refreshTrigger}
                   />
+                  {/* 将 Footer 放入滚动区域内，体验更好 */}
+                  <Footer />
                 </div>
-                <Footer />
               </div>
-              <BackToTop />
+              
+              {/* ================= 修改点 4: 传入容器 ID ================= */}
+              <BackToTop scrollContainerId="main-scroll-container" />
+              {/* ===================================================== */}
             </>
           ) : (
             <div className="flex flex-1">
