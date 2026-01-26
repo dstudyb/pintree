@@ -94,7 +94,14 @@ export function ImportCollectionDialog({
 
       const startTime = Date.now();
 
-      if (jsonData.metadata?.exportedFrom === "Pintree") {
+      // ================= 修改点 1: 更智能的 Pintree 格式检测 =================
+      // 只要包含 "Pintree" 字样，或者同时拥有 folders 和 bookmarks 结构，就认为是专用格式
+      const isPintreeFormat = 
+        jsonData.metadata?.exportedFrom?.includes("Pintree") || 
+        (jsonData.folders && jsonData.bookmarks && !Array.isArray(jsonData.folders));
+
+      if (isPintreeFormat) {
+        // ... Pintree 专用导入逻辑 (Marks-export.json 将走这里) ...
         batchSize = 50
         // Import folders first
         const folderLevels = Object.keys(jsonData.folders)
@@ -157,8 +164,8 @@ export function ImportCollectionDialog({
        
           const requestData = {
             bookmarks: batchBookmarks,
-            collectionId: importedCollectionId, // Use the collection ID created when importing folders
-            folderMap: folderMap, // Use folder mapping
+            collectionId: importedCollectionId, 
+            folderMap: folderMap, 
           };
        
           const response: any = await fetch("/api/collections/import-recover-data/recover-bookmarks", {
@@ -191,49 +198,83 @@ export function ImportCollectionDialog({
               (${batchDuration.toFixed(2)}s, estimated remaining ${estimatedRemainingTime.toFixed(2)}s)`,
           });
         } 
-
-        // Import completed
       } else {
-        // ================= 修改点: 增加对不同 JSON 结构的安全解析逻辑 =================
-        let rootNodes = [];
+        // ================= 修改点 2: 通用解析 + LiteMark 支持 =================
+        let rootNodes: any[] = [];
 
-        // 1. 如果是数组结构 (常见于 Pintree 插件或某些导出)
-        if (Array.isArray(jsonData)) {
-          if (jsonData.length > 0 && jsonData[0] && jsonData[0].children) {
-             // 结构: [{ children: [...] }]
-             rootNodes = jsonData[0].children;
-          } else {
-             // 结构: [...] (本身就是节点数组)
-             rootNodes = jsonData;
-          }
+        // 检测 LiteMark / Category 扁平格式 (litemark-backup.json 将走这里)
+        if (jsonData.bookmarks && Array.isArray(jsonData.bookmarks) && jsonData.bookmarks.length > 0 && jsonData.bookmarks[0].category) {
+            console.log("Detected LiteMark/Category flat format. Transforming...");
+            
+            const categoryMap = new Map<string, any[]>();
+            
+            jsonData.bookmarks.forEach((item: any) => {
+                const cat = item.category || "Uncategorized";
+                if (!categoryMap.has(cat)) {
+                    categoryMap.set(cat, []);
+                }
+                categoryMap.get(cat)?.push({
+                    title: item.title,
+                    name: item.title, // 确保有 name
+                    url: item.url,
+                    icon: item.icon,
+                    description: item.description,
+                    addDate: Date.now(),
+                });
+            });
+
+            // 转换为树形结构
+            rootNodes = Array.from(categoryMap.entries()).map(([catName, items]) => ({
+                title: catName,
+                name: catName,
+                children: items
+            }));
         } 
-        // 2. 如果是对象结构 (常见于 Chrome 原生备份或普通 JSON)
-        else if (typeof jsonData === 'object' && jsonData !== null) {
-          if (jsonData.children) {
-             // 结构: { children: [...] }
-             rootNodes = jsonData.children;
-          } else if (jsonData.roots && jsonData.roots.bookmark_bar) {
-             // 结构: Chrome 备份格式 { roots: { bookmark_bar: { children: ... } } }
-             rootNodes = jsonData.roots.bookmark_bar.children || [];
-          } else {
-             // 未知结构，尝试作为单个节点处理或忽略
-             rootNodes = []; 
-             console.warn("Unknown JSON structure for bookmarks");
-          }
+        // 否则使用通用递归查找 (Chrome/Edge 备份)
+        else {
+            const findBookmarkNodes = (obj: any): any[] => {
+              if (!obj) return [];
+              
+              if (Array.isArray(obj)) {
+                const looksLikeBookmarks = obj.some(item => 
+                  item && (item.url || item.children || item.title || item.name)
+                );
+                if (looksLikeBookmarks) {
+                  return obj;
+                }
+                for (const item of obj) {
+                   const found = findBookmarkNodes(item);
+                   if (found.length > 0) return found;
+                }
+              } else if (typeof obj === 'object') {
+                if (obj.children && Array.isArray(obj.children) && obj.children.length > 0) return obj.children;
+                if (obj.roots?.bookmark_bar?.children) return obj.roots.bookmark_bar.children;
+                
+                for (const key in obj) {
+                  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const found = findBookmarkNodes(obj[key]);
+                    if (found.length > 0) return found;
+                  }
+                }
+              }
+              return [];
+            };
+            
+            rootNodes = findBookmarkNodes(jsonData);
         }
 
-        // 使用处理过的 rootNodes，并确保它不为 undefined
+        console.log("Parsed Root Nodes:", rootNodes);
+
+        // 使用工具函数扁平化树结构
         const flattenedBookmarks = createFlattenBookmarks(rootNodes || []);
-        // =========================================================================
 
         const totalBookmarks = flattenedBookmarks.length;
 
-        // 如果解析后没有书签，提示用户
         if (totalBookmarks === 0) {
             toast({
               variant: "destructive",
               title: "Import Error",
-              description: "No bookmarks found in the uploaded file. Please check the file format.",
+              description: "No bookmarks found. Please check the file format.",
             });
             return;
         }
@@ -246,7 +287,7 @@ export function ImportCollectionDialog({
             name: formData.name,
             description: formData.description,
             bookmarks: batchBookmarks,
-            collectionId: importedCollectionId, // Append to the same collection in subsequent batches
+            collectionId: importedCollectionId,
             folderMap: folderMap,
           };
 
@@ -260,28 +301,17 @@ export function ImportCollectionDialog({
 
           const data: any = await response.json();
           const batchEndTime = Date.now();
-          const batchDuration = (batchEndTime - batchStartTime) / 1000; // seconds
+          const batchDuration = (batchEndTime - batchStartTime) / 1000;
           const remainingBatches = Math.ceil(
             (totalBookmarks - i - batchSize) / batchSize
           );
           const estimatedRemainingTime = batchDuration * remainingBatches;
 
-          console.log(
-            `Batch ${
-              Math.floor(i / batchSize) + 1
-            } imported, ${remainingBatches} batches remaining`,
-            data
-          );
+          console.log(`Batch imported`, data);
 
-          // Show import progress toast with batch time and estimated remaining time
           toast({
             title: "Import Progress",
-            description: `Batch ${
-              Math.floor(i / batchSize) + 1
-            } imported (${batchDuration.toFixed(2)}s). 
-          Estimated remaining time: ${estimatedRemainingTime.toFixed(
-            2
-          )}s (${remainingBatches} batches)`,
+            description: `Batch ${Math.floor(i / batchSize) + 1} imported (${batchDuration.toFixed(2)}s).`,
           });
 
           if (!response.ok) {
@@ -293,7 +323,6 @@ export function ImportCollectionDialog({
             return;
           }
 
-          // Record the first batch's collection ID for subsequent batches
           if (i === 0) {
             importedCollectionId = data.collectionId;
           }
@@ -306,11 +335,9 @@ export function ImportCollectionDialog({
 
       const totalImportTime = (Date.now() - startTime) / 1000;
 
-      // Import completion handling
       onOpenChange(false);
       router.refresh();
 
-      // Reset form
       setFormData({
         name: "",
         description: "",
@@ -319,9 +346,7 @@ export function ImportCollectionDialog({
 
       toast({
         title: "Import Successful",
-        description: `Collection "${
-          formData.name
-        }" imported successfully in ${totalImportTime.toFixed(2)}s`,
+        description: `Collection "${formData.name}" imported successfully in ${totalImportTime.toFixed(2)}s`,
       });
 
       if (onSuccess) {
@@ -332,10 +357,7 @@ export function ImportCollectionDialog({
       toast({
         variant: "destructive",
         title: "Import Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An error occurred while importing the bookmark collection",
+        description: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
       setLoading(false);
