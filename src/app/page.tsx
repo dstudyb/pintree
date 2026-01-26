@@ -32,9 +32,12 @@ function SearchParamsComponent() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [collectionName, setCollectionName] = useState<string>("");
   const [collections, setCollections] = useState<Collection[]>([]);
-  // ================= 修改点 1: 新增背景图状态 =================
+  
+  // ================= 修改点 1: 新增透明度 state (默认 0.85) =================
   const [bgImage, setBgImage] = useState<string>("");
-  // ==========================================================
+  const [bgOpacity, setBgOpacity] = useState<number>(0.85); 
+  // =========================================================================
+  
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -45,7 +48,7 @@ function SearchParamsComponent() {
     router.push(`${pathname}?${currentSearchParams.toString()}`);
   }
 
-  // ================= 修改点 2: 新增 useEffect 获取背景设置 =================
+  // ================= 修改点 2: 更新获取背景设置逻辑 =================
   useEffect(() => {
     const fetchBackground = async () => {
       try {
@@ -53,6 +56,10 @@ function SearchParamsComponent() {
         const data = await res.json();
         if (data.url) {
           setBgImage(data.url);
+        }
+        // 如果有透明度配置，应用它 (0-100 转为 0.0-1.0)
+        if (data.opacity !== undefined) {
+          setBgOpacity(data.opacity / 100);
         }
       } catch (e) {
         console.error("Failed to load background", e);
@@ -145,7 +152,6 @@ function SearchParamsComponent() {
   }, [selectedCollectionId, currentFolderId]);
 
   return (
-    // ================= 修改点 3: 修改最外层 div 以支持背景图 =================
     <div 
       className="flex min-h-screen flex-col bg-background transition-all duration-500 ease-in-out"
       style={{
@@ -156,8 +162,17 @@ function SearchParamsComponent() {
         backgroundAttachment: "fixed", // 固定背景，产生视差效果
       }}
     >
-      {/* 新增遮罩层：如果有背景图，添加半透明背景和模糊效果，确保内容可读 */}
-      <div className={`flex min-h-screen flex-col ${bgImage ? 'bg-background/85 backdrop-blur-sm' : ''}`}>
+      {/* ================= 修改点 3: 动态应用透明度遮罩 ================= */}
+      {/* 移除硬编码的 bg-background/85，改用 style 动态设置背景色透明度 */}
+      <div 
+        className={`flex min-h-screen flex-col ${bgImage ? 'backdrop-blur-sm' : ''}`}
+        style={{
+          // 使用 Shadcn UI 标准 CSS 变量动态计算带透明度的背景色
+          // 这样既能保持深色/浅色模式适配，又能控制遮罩浓度
+          backgroundColor: bgImage ? `hsl(var(--background) / ${bgOpacity})` : undefined
+        }}
+      >
+      {/* =============================================================== */}
         
         <TopBanner />
         
@@ -255,7 +270,6 @@ function SearchParamsComponent() {
       </div>
       {/* 遮罩层结束 */}
     </div>
-    // =====================================================================
   );
 }
 
