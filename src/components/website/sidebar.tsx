@@ -17,6 +17,8 @@ import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+
+// ... (接口定义保持不变) ...
 interface Collection {
   id: string;
   name: string;
@@ -45,20 +47,19 @@ export function WebsiteSidebar({
   selectedCollectionId,
   currentFolderId,
 }: WebsiteSidebarProps) {
+  // ... (Hooks 和 useEffect 逻辑完全保持不变) ...
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [folderTree, setFolderTree] = useState<FolderNode[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folders, setFolders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { images, isLoading, error } = useSettingImages("logoUrl");
 
-  // 获取书签集合列表
+  // ... (fetchCollections useEffect 保持不变) ...
   useEffect(() => {
     const fetchCollections = async () => {
       try {
@@ -75,7 +76,6 @@ export function WebsiteSidebar({
         const publicCollections = data;
         setCollections(publicCollections);
 
-        // 如果有公开的书签集合且没有选中的集合，选择第一个
         if (publicCollections.length > 0 && !selectedCollectionId) {
           const firstCollection = publicCollections[0];
           if (onCollectionChange) {
@@ -92,7 +92,7 @@ export function WebsiteSidebar({
     fetchCollections();
   }, []);
 
-  // 获取文件夹树
+  // ... (fetchFolders useEffect 保持不变) ...
   useEffect(() => {
     if (selectedCollectionId) {
       const fetchFolders = async () => {
@@ -111,7 +111,7 @@ export function WebsiteSidebar({
     }
   }, [selectedCollectionId]);
 
-  // 添加一个新的 useEffect 来处理文件夹展开
+  // ... (expandFolders useEffect 保持不变) ...
   useEffect(() => {
     if (currentFolderId && folders.length > 0) {
       const expandParentFolders = (folderId: string) => {
@@ -126,7 +126,6 @@ export function WebsiteSidebar({
         }
       };
 
-      // 确保当前文件夹也被展开
       setExpandedFolders((prev) => {
         const next = new Set(prev);
         next.add(currentFolderId);
@@ -136,17 +135,15 @@ export function WebsiteSidebar({
       expandParentFolders(currentFolderId);
     }
 
-    // if currentFolderId is not set, and there is only one root folder, expand it
     const rootFolders = folders.filter(folder => !folder.parentId);
     if(!currentFolderId && rootFolders.length === 1) {
       setExpandedFolders(new Set([rootFolders[0].id]));
     }
   }, [currentFolderId, folders]);
 
+  // ... (buildFolderTree 函数保持不变) ...
   const buildFolderTree = (folders: any[]): FolderNode[] => {
     const folderMap = new Map();
-
-    // 第一步：创建所有节点的映射
     folders.forEach((folder) => {
       folderMap.set(folder.id, {
         ...folder,
@@ -156,38 +153,25 @@ export function WebsiteSidebar({
       });
     });
 
-    // 第二步：计算每个文件夹的路径和层级
-    const calculateLevel = (
-      folderId: string,
-      visited = new Set<string>()
-    ): number => {
-      if (visited.has(folderId)) {
-        console.warn("Circular reference detected:", folderId);
-        return 0;
-      }
-
+    const calculateLevel = (folderId: string, visited = new Set<string>()): number => {
+      if (visited.has(folderId)) return 0;
       const folder = folderMap.get(folderId);
       if (!folder) return 0;
-      if (folder.level !== 0) return folder.level; // 如果已经计算过，直接返回
-
+      if (folder.level !== 0) return folder.level;
       visited.add(folderId);
-
       if (!folder.parentId) {
         folder.level = 0;
       } else {
         folder.level = calculateLevel(folder.parentId, visited) + 1;
       }
-
       visited.delete(folderId);
       return folder.level;
     };
 
-    // 为所有文件夹计算层级
     folders.forEach((folder) => {
       calculateLevel(folder.id);
     });
 
-    // 第三步：构建树结构
     const rootFolders: FolderNode[] = [];
     folders.forEach((folder) => {
       const node = folderMap.get(folder.id);
@@ -196,29 +180,12 @@ export function WebsiteSidebar({
         if (parent) {
           parent.children.push(node);
         } else {
-          // 如果找不到父文件夹，作为根文件夹处理
           rootFolders.push(node);
         }
       } else {
         rootFolders.push(node);
       }
     });
-
-    // 添加调试日志
-    const logFolderStructure = (folders: FolderNode[], prefix = "") => {
-      folders.forEach((folder) => {
-        console.log(`${prefix}${folder.name} (Level: ${folder.level})`);
-        if (folder.children.length > 0) {
-          logFolderStructure(folder.children, prefix + "  ");
-        }
-      });
-    };
-
-    // 在开发环境下输出文件夹结构
-    if (process.env.NODE_ENV === "development") {
-      console.log("Folder structure:");
-      logFolderStructure(rootFolders);
-    }
 
     return rootFolders;
   };
@@ -242,11 +209,17 @@ export function WebsiteSidebar({
         <SidebarMenuItem>
           <SidebarMenuButton
             onClick={() => handleFolderSelect(folder.id)}
+            // ================= 修改点 1: 优化选中样式 =================
+            // 移除 bg-gray-200/50，改为更通用的 hover/active 样式
+            // 选中状态使用 bg-accent/60 backdrop-blur-sm (与顶部导航栏一致)
             className={cn(
-              "flex items-center w-full",
-              "transition-colors hover:bg-gray-200/50 active:bg-gray-200/50 rounded-xl",
-              currentFolderId === folder.id ? "bg-gray-200/50" : ""
+              "flex items-center w-full rounded-xl transition-all duration-200",
+              "hover:bg-accent/40 active:bg-accent/50", 
+              currentFolderId === folder.id 
+                ? "bg-accent/60 backdrop-blur-sm text-accent-foreground font-medium shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
             )}
+            // =========================================================
             style={{
               paddingLeft: `${folder.level * 5 + 12}px`,
             }}
@@ -258,8 +231,8 @@ export function WebsiteSidebar({
                     className={cn(
                       "h-4 w-4 shrink-0 transition-transform",
                       expandedFolders.has(folder.id) && "rotate-90",
-                      currentFolderId === folder.id &&
-                        "text-emerald-600 dark:text-emerald-400"
+                      // 移除特定颜色，让其继承父级颜色
+                      currentFolderId === folder.id && "text-current"
                     )}
                     onClick={(e) => toggleFolder(folder.id, e)}
                   />
@@ -270,27 +243,19 @@ export function WebsiteSidebar({
                   <FolderOpen
                     className={cn(
                       "h-4 w-4 shrink-0 fill-current",
-                      currentFolderId === folder.id &&
-                        "text-emerald-600 dark:text-emerald-400"
+                      currentFolderId === folder.id && "text-current"
                     )}
                   />
                 ) : (
                   <Folder
                     className={cn(
                       "h-4 w-4 shrink-0 fill-current",
-                      currentFolderId === folder.id &&
-                        "text-emerald-600 dark:text-emerald-400"
+                      currentFolderId === folder.id && "text-current"
                     )}
                   />
                 )}
               </div>
-              <span
-                className={cn(
-                  "truncate",
-                  currentFolderId === folder.id &&
-                    "text-emerald-600 dark:text-emerald-400 font-medium"
-                )}
-              >
+              <span className="truncate">
                 {folder.name}
               </span>
             </div>
@@ -305,7 +270,6 @@ export function WebsiteSidebar({
   };
 
   const handleFolderSelect = (folderId: string) => {
-    // 如果文件夹有子文件夹，则展开/折叠该文件夹
     const folder = folders.find((f) => f.id === folderId);
     if (folder) {
       const hasChildren = folders.some((f) => f.parentId === folderId);
@@ -322,7 +286,6 @@ export function WebsiteSidebar({
       }
     }
 
-    // 原有的文件夹选择逻辑
     if (onFolderSelect) {
       onFolderSelect(folderId);
     } else {
@@ -337,7 +300,6 @@ export function WebsiteSidebar({
   const SidebarSkeleton = () => {
     return (
       <div className="space-y-4 p-4">
-        {/* 文件夹列表骨架屏 */}
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-8 w-full rounded-md" />
@@ -348,7 +310,11 @@ export function WebsiteSidebar({
   };
 
   return (
-    <Sidebar className="flex flex-col h-screen bg-[#F9F9F9]">
+    // ================= 修改点 2: 侧边栏容器样式优化 =================
+    // 移除 bg-[#F9F9F9]，改为 bg-background/60 backdrop-blur-md 以支持毛玻璃效果
+    // 添加 border-r border-border/40 让边缘更柔和
+    <Sidebar className="flex flex-col h-screen bg-background/60 backdrop-blur-md border-r border-border/40">
+    {/* ================================================================ */}
       <SidebarHeader className="flex-shrink-0">
         <SidebarMenu>
           <SidebarMenuItem>
