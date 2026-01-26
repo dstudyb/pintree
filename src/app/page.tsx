@@ -10,9 +10,7 @@ import { Header } from "@/components/website/header";
 import { Footer } from "@/components/website/footer";
 import { TopBanner } from "@/components/website/top-banner";
 
-// ================= 修改点 1: 引入 useSession =================
 import { useSession } from "next-auth/react";
-// ===========================================================
 
 import { GetStarted } from "@/components/website/get-started";
 import { BackToTop } from "@/components/website/back-to-top";
@@ -27,15 +25,16 @@ function SearchParamsComponent() {
   const searchParams = useSearchParams();
   const collectionSlug = searchParams.get("collection");
 
-  // ================= 修改点 2: 获取 session 状态 =================
   const { status } = useSession();
-  // =============================================================
 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [collectionName, setCollectionName] = useState<string>("");
   const [collections, setCollections] = useState<Collection[]>([]);
+  // ================= 修改点 1: 新增背景图状态 =================
+  const [bgImage, setBgImage] = useState<string>("");
+  // ==========================================================
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -46,6 +45,23 @@ function SearchParamsComponent() {
     router.push(`${pathname}?${currentSearchParams.toString()}`);
   }
 
+  // ================= 修改点 2: 新增 useEffect 获取背景设置 =================
+  useEffect(() => {
+    const fetchBackground = async () => {
+      try {
+        const res = await fetch("/api/settings/background");
+        const data = await res.json();
+        if (data.url) {
+          setBgImage(data.url);
+        }
+      } catch (e) {
+        console.error("Failed to load background", e);
+      }
+    };
+    fetchBackground();
+  }, []);
+  // =====================================================================
+
   useEffect(() => {
     const folderId = searchParams.get("folderId");
     setCurrentFolderId(folderId);
@@ -54,14 +70,11 @@ function SearchParamsComponent() {
       try {
         setIsLoading(true);
         
-        // ================= 修改点 3: 根据登录状态决定 API URL =================
-        // 如果已登录，不传 publicOnly 参数（获取全部）；如果未登录，传 publicOnly=true
         const apiUrl = status === "authenticated" 
           ? "/api/collections" 
           : "/api/collections?publicOnly=true";
         
         const response = await fetch(apiUrl);
-        // ====================================================================
         
         const data = await response.json();
         setCollections(data);
@@ -94,13 +107,11 @@ function SearchParamsComponent() {
       }
     };
 
-    // ================= 修改点 4: 只有当 session 加载完成后才请求 =================
     if (status !== "loading") {
       fetchCollectionsAndSetDefault();
     }
-    // =========================================================================
     
-  }, [searchParams, status]); // ================= 修改点 5: 添加 status 依赖 =================
+  }, [searchParams, status]);
 
 
 
@@ -134,101 +145,117 @@ function SearchParamsComponent() {
   }, [selectedCollectionId, currentFolderId]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <TopBanner />
-      
-      <div className="flex flex-1">
-        {!isLoading && collections.length > 0 && !selectedCollectionId ? (
-           <div className="flex-1 container mx-auto px-4 py-12">
-           <div className="text-center mb-12">
-             <h1 className="text-4xl font-bold tracking-tight mb-4">Discover Collections</h1>
-             <p className="text-lg text-muted-foreground">Select a collection to browse bookmarks.</p>
+    // ================= 修改点 3: 修改最外层 div 以支持背景图 =================
+    <div 
+      className="flex min-h-screen flex-col bg-background transition-all duration-500 ease-in-out"
+      style={{
+        // 如果有背景图，应用背景图；否则保持默认
+        backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed", // 固定背景，产生视差效果
+      }}
+    >
+      {/* 新增遮罩层：如果有背景图，添加半透明背景和模糊效果，确保内容可读 */}
+      <div className={`flex min-h-screen flex-col ${bgImage ? 'bg-background/85 backdrop-blur-sm' : ''}`}>
+        
+        <TopBanner />
+        
+        <div className="flex flex-1">
+          {!isLoading && collections.length > 0 && !selectedCollectionId ? (
+             <div className="flex-1 container mx-auto px-4 py-12">
+             <div className="text-center mb-12">
+               <h1 className="text-4xl font-bold tracking-tight mb-4">Discover Collections</h1>
+               <p className="text-lg text-muted-foreground">Select a collection to browse bookmarks.</p>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {collections.map((collection) => (
+                 <Card 
+                   key={collection.id} 
+                   className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary/50 group"
+                   onClick={() => handleCollectionChange(collection.id)}
+                 >
+                   <CardHeader>
+                     <CardTitle className="flex items-center gap-2">
+                       <Folder className="w-5 h-5 text-primary group-hover:text-primary/80" />
+                       {collection.name}
+                     </CardTitle>
+                     {collection.description && (
+                       <CardDescription className="line-clamp-2">
+                         {collection.description}
+                       </CardDescription>
+                     )}
+                   </CardHeader>
+                   <CardContent className="flex justify-end">
+                      <span className="text-sm font-medium text-primary flex items-center gap-1 group-hover:underline">
+                        Browse <ArrowRight className="w-4 h-4" />
+                      </span>
+                   </CardContent>
+                 </Card>
+               ))}
+             </div>
+             <div className="mt-20">
+                <Footer />
+             </div>
            </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             {collections.map((collection) => (
-               <Card 
-                 key={collection.id} 
-                 className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary/50 group"
-                 onClick={() => handleCollectionChange(collection.id)}
-               >
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <Folder className="w-5 h-5 text-primary group-hover:text-primary/80" />
-                     {collection.name}
-                   </CardTitle>
-                   {collection.description && (
-                     <CardDescription className="line-clamp-2">
-                       {collection.description}
-                     </CardDescription>
-                   )}
-                 </CardHeader>
-                 <CardContent className="flex justify-end">
-                    <span className="text-sm font-medium text-primary flex items-center gap-1 group-hover:underline">
-                      Browse <ArrowRight className="w-4 h-4" />
-                    </span>
-                 </CardContent>
-               </Card>
-             ))}
-           </div>
-           <div className="mt-20">
-              <Footer />
-           </div>
-         </div>
-        ) : (
-          <SidebarProvider>
-          {
-          isLoading && !collections.length ? (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-          ) : 
-          selectedCollectionId || collectionSlug ? (
-            <>
-              <WebsiteSidebar
-                selectedCollectionId={selectedCollectionId}
-                currentFolderId={currentFolderId}
-                onCollectionChange={handleCollectionChange}
-                onFolderSelect={handleFolderSelect}
-              />
-              <div className="flex flex-1 flex-col space-y-8 h-full overflow-hidden">
-                <Header
+          ) : (
+            <SidebarProvider>
+            {
+            isLoading && !collections.length ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : 
+            selectedCollectionId || collectionSlug ? (
+              <>
+                <WebsiteSidebar
                   selectedCollectionId={selectedCollectionId}
                   currentFolderId={currentFolderId}
-                  onBookmarkAdded={refreshData}
-                  collections={collections}
+                  onCollectionChange={handleCollectionChange}
+                  onFolderSelect={handleFolderSelect}
                 />
-                
-                <div 
-                  id="main-scroll-container" 
-                  className="flex-1 overflow-y-auto"
-                >
-                  <BookmarkGrid
-                    key={`${selectedCollectionId}-${currentFolderId}`}
-                    collectionId={selectedCollectionId}
+                <div className="flex flex-1 flex-col space-y-8 h-full overflow-hidden">
+                  <Header
+                    selectedCollectionId={selectedCollectionId}
                     currentFolderId={currentFolderId}
-                    collectionName={collectionName}
-                    collectionSlug={
-                      collections.find((c) => c.id === selectedCollectionId)
-                        ?.slug || ""
-                    }
-                    refreshTrigger={refreshTrigger}
+                    onBookmarkAdded={refreshData}
+                    collections={collections}
                   />
-                  <Footer />
+                  
+                  <div 
+                    id="main-scroll-container" 
+                    className="flex-1 overflow-y-auto"
+                  >
+                    <BookmarkGrid
+                      key={`${selectedCollectionId}-${currentFolderId}`}
+                      collectionId={selectedCollectionId}
+                      currentFolderId={currentFolderId}
+                      collectionName={collectionName}
+                      collectionSlug={
+                        collections.find((c) => c.id === selectedCollectionId)
+                          ?.slug || ""
+                      }
+                      refreshTrigger={refreshTrigger}
+                    />
+                    <Footer />
+                  </div>
                 </div>
+                
+                <BackToTop scrollContainerId="main-scroll-container" />
+              </>
+            ) : (
+              <div className="flex flex-1">
+                <GetStarted />
               </div>
-              
-              <BackToTop scrollContainerId="main-scroll-container" />
-            </>
-          ) : (
-            <div className="flex flex-1">
-              <GetStarted />
-            </div>
+            )}
+          </SidebarProvider>
           )}
-        </SidebarProvider>
-        )}
+        </div>
       </div>
+      {/* 遮罩层结束 */}
     </div>
+    // =====================================================================
   );
 }
 
