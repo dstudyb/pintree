@@ -248,7 +248,7 @@ function SearchParamsComponent() {
                   <div 
                     id="main-scroll-container" 
                     // ================= 修改点 4: 添加 pb-10 防止内容贴底 =================
-                    className="flex-1 overflow-y-auto pb-10"
+                    className="flex-1 overflow-y-auto pb-15"
                     // =====================================================================
                   >
                     <BookmarkGrid
