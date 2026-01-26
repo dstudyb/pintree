@@ -222,21 +222,6 @@ export function BookmarkGrid({
     }
   };
 
-  // 调试用的副作用钩子，记录子文件夹信息
-  // useEffect(() => {
-  //   console.log("Subfolders:", subfolders);
-  //   subfolders.forEach(subfolder => {
-  //     console.log(`Folder ${subfolder.name}:`, {
-  //       id: subfolder.id,
-  //       items: subfolder.items.length,
-  //       bookmarks: subfolder.items.filter(item => item.type === 'bookmark').length,
-  //       bookmarkCount: subfolder.bookmarkCount,
-  //       rawData: subfolder,
-  //       allProps: Object.keys(subfolder)
-  //     });
-  //   });
-  // }, [subfolders]);
-
   // 加载搜索设置的副作用钩子
   useEffect(() => {
     const loadSearchSetting = async () => {
@@ -265,20 +250,17 @@ export function BookmarkGrid({
   if (loading) {
     return (
       <div className="px-6 space-y-6">
-        {/* 搜索栏骨架屏 - 添加条件渲染 */}
         {enableSearch && (
           <div className="flex justify-center mt-4 mb-12">
             <Skeleton className="h-12 w-[600px] rounded-full" />
           </div>
         )}
 
-        {/* 面包屑导航骨架屏 */}
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-8 w-20 rounded-2xl" />
           <Skeleton className="h-8 w-24 rounded-2xl" />
         </div>
 
-        {/* 内容区域骨架屏 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {[...Array(12)].map((_, i) => (
             <Skeleton key={i} className="h-[90px] rounded-2xl" />
@@ -291,7 +273,6 @@ export function BookmarkGrid({
   // 渲染主组件
   return (
     <div className="px-6 space-y-6">
-      {/* 搜索栏 - 添加条件渲染 */}
       {enableSearch && (
         <div className="flex justify-center mt-4 mb-12">
           <SearchBar
@@ -312,32 +293,42 @@ export function BookmarkGrid({
             variant="ghost" 
             size="sm"
             onClick={() => handleFolderNavigation(null)}
+            // ================= 修改点 1: 根目录按钮样式 =================
+            // 彻底移除背景色和悬停背景色，只保留文字颜色变化
             className={cn(
-              "hover:bg-white px-0",
-              !currentFolderId && "bg-white"
+              "px-2 transition-colors hover:bg-transparent hover:text-foreground",
+              !currentFolderId ? "font-medium text-foreground" : "text-muted-foreground"
             )}
+            // ==========================================================
           >
             {collectionName}
           </Button>
           
           {breadcrumbs.length > 0 && (
             <>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
               {breadcrumbs.map((item, index) => (
                 <div key={item.id} className="flex items-center">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleFolderNavigation(item.id)}
+                    // ================= 修改点 2: 面包屑子项样式 =================
+                    // 彻底移除背景色和悬停背景色
+                    // 选中项：加粗，使用前景文字色
+                    // 未选中项：使用柔和文字色，悬停变为前景文字色
                     className={cn(
-                      "hover:text-gray-500 hover:bg-white px-0",
-                      currentFolderId === item.id && "text-gray-500 bg-white"
+                      "px-2 transition-colors hover:bg-transparent hover:text-foreground",
+                      currentFolderId === item.id 
+                        ? "font-medium text-foreground" 
+                        : "text-muted-foreground"
                     )}
+                    // ===========================================================
                   >
                     {item.name}
                   </Button>
                   {index < breadcrumbs.length - 1 && (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
               ))}
@@ -353,7 +344,6 @@ export function BookmarkGrid({
         </div>
       ) : (
         <div className="space-y-12">
-          {/* 搜索结果显示 */}
           {searchResults.length > 0 ? (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Search results ({totalResults})</h2>
@@ -375,12 +365,9 @@ export function BookmarkGrid({
               No related results found
             </div>
           ) : (
-            // 原有的文件夹和书签显示逻辑，非搜索状态
             <>
-              {/* 当前文件夹的书签，书签展示在文件夹前面 */}
               {currentBookmarks?.length > 0 && (
                 <div className="space-y-4">
-                  {/* 只在有子文件夹时显示标题 */}
                   {subfolders?.length > 0 && (
                     <h2 className="text-xl font-semibold">
                       {currentFolderId ? breadcrumbs[breadcrumbs.length - 1]?.name : collectionName}
@@ -401,14 +388,12 @@ export function BookmarkGrid({
                 </div>
               )}
 
-              {/* 子文件夹及其内容 */}
               {subfolders?.map((subfolder) => (
                 <div key={subfolder.id} className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">
                       {subfolder.name}
                     </h3>
-                    {/* 当文件夹内的项目总数大于显示的书签数时显示 View all 按钮 */}
                     {subfolder.items.length > 50 && (
                       <Button
                         variant="ghost"
@@ -449,23 +434,24 @@ export function BookmarkGrid({
         </div>
       )}
 
-      {/* 分页按钮部分 */}
       {searchResults.length > 0 && (
         <div className="flex items-center justify-center mt-4">
           <Button
             variant="outline"
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
+            className="bg-background/40 backdrop-blur-sm"
           >
             Previous
           </Button>
-          <span className="mx-4">
+          <span className="mx-4 font-medium text-foreground">
             Page {currentPage} of {totalPages}
           </span>
           <Button
             variant="outline"
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
+            className="bg-background/40 backdrop-blur-sm"
           >
             Next
           </Button>
