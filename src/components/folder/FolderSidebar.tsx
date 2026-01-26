@@ -1,7 +1,24 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronRight, Folder } from "lucide-react";
+// ================= 修改点 1: 引入更多 Lucide 图标 =================
+import { 
+  ChevronRight, 
+  Folder,
+  // 新增预设图标
+  Film,       // 影视
+  Music,      // 音乐
+  Gamepad2,   // 游戏
+  Code2,      // 代码/开发
+  Book,       // 书籍/阅读
+  Image as ImageIcon, // 图片
+  Monitor,    // 科技
+  Globe,      // 网络
+  Coffee,     // 生活
+  Briefcase,  // 工作
+  GraduationCap // 学习
+} from "lucide-react";
+// ===============================================================
 import { cn } from "@/lib/utils";
 import { 
   Select,
@@ -10,6 +27,22 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+
+// ================= 修改点 2: 定义图标映射表 =================
+const PREDEFINED_ICONS: Record<string, React.ComponentType<any>> = {
+  "movie": Film, "film": Film,
+  "music": Music,
+  "game": Gamepad2,
+  "code": Code2, "dev": Code2,
+  "book": Book, "read": Book,
+  "image": ImageIcon, "photo": ImageIcon,
+  "tech": Monitor,
+  "web": Globe,
+  "life": Coffee,
+  "work": Briefcase,
+  "study": GraduationCap
+};
+// ==========================================================
 
 interface Collection {
   id: string;
@@ -122,6 +155,10 @@ export function FolderSidebar({
     const isSelected = currentFolderId === folder.id;
     const paddingLeft = folder.level * 16;
 
+    // ================= 修改点 3: 获取对应的预设图标组件 =================
+    const PredefinedIcon = folder.icon ? PREDEFINED_ICONS[folder.icon.toLowerCase()] : null;
+    // ==================================================================
+
     return (
       <div key={folder.id}>
         <Button
@@ -145,7 +182,21 @@ export function FolderSidebar({
               />
             )}
             {!hasChildren && <div className="w-4" />}
-            <Folder className="h-4 w-4 shrink-0" />
+            
+            {/* ================= 修改点 4: 渲染图标逻辑 (预设 -> URL -> 默认) ================= */}
+            {PredefinedIcon ? (
+              <PredefinedIcon className="h-4 w-4 shrink-0" />
+            ) : folder.icon ? (
+              <img 
+                src={folder.icon} 
+                alt={folder.name} 
+                className="h-4 w-4 shrink-0 object-contain" 
+              />
+            ) : (
+              <Folder className="h-4 w-4 shrink-0" />
+            )}
+            {/* ============================================================================ */}
+            
             <span className="truncate">{folder.name}</span>
           </div>
         </Button>
