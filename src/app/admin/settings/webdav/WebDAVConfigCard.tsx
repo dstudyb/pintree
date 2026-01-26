@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, CheckCircle2, Clock } from "lucide-react"; // 引入 Clock 图标
 
 import {
   Card,
@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch"; // 引入 Switch
 
 interface WebDAVConfigCardProps {
   settings: {
@@ -19,18 +20,21 @@ interface WebDAVConfigCardProps {
     webdav_username: string;
     webdav_password: string;
     webdav_path: string;
+    webdav_autosync: string; // 新增字段：注意数据库里存的是字符串 "true"/"false"
     [key: string]: string;
   };
   handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // 新增：专门处理 Switch 变化的函数
+  onSwitchChange: (checked: boolean) => void; 
 }
 
 const WebDAVConfigCard = ({
   settings,
   handleChange,
+  onSwitchChange,
 }: WebDAVConfigCardProps) => {
   const [testing, setTesting] = useState(false);
 
-  // 测试连接功能
   const handleTestConnection = async () => {
     setTesting(true);
     try {
@@ -71,7 +75,6 @@ const WebDAVConfigCard = ({
               Configure your WebDAV server details
             </CardDescription>
           </div>
-          {/* 测试连接按钮放置在右上角 */}
           <Button 
             variant="outline" 
             size="sm" 
@@ -87,7 +90,7 @@ const WebDAVConfigCard = ({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-4 p-6">
+      <CardContent className="grid gap-6 p-6">
         {/* 服务器地址 */}
         <div className="grid gap-2">
           <Label htmlFor="webdav_url">Server URL</Label>
@@ -100,7 +103,7 @@ const WebDAVConfigCard = ({
           />
         </div>
 
-        {/* 用户名和密码并排 */}
+        {/* 用户名和密码 */}
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
             <Label htmlFor="webdav_username">Username</Label>
@@ -135,10 +138,28 @@ const WebDAVConfigCard = ({
             onChange={handleChange}
             placeholder="/pintree/bookmarks.json"
           />
-          <p className="text-xs text-muted-foreground">
-            Default: /pintree/bookmarks.json
-          </p>
         </div>
+
+        {/* 分割线 */}
+        <div className="border-t pt-4 mt-2">
+           <div className="flex items-center justify-between space-x-2">
+            <div className="flex flex-col space-y-1">
+               <Label htmlFor="autosync" className="text-base font-medium flex items-center gap-2">
+                 <Clock className="w-4 h-4 text-indigo-600" />
+                 Automatic Daily Backup
+               </Label>
+               <span className="text-sm text-muted-foreground">
+                 Automatically backup bookmarks to WebDAV every day (02:00 UTC).
+               </span>
+            </div>
+            <Switch 
+              id="autosync"
+              checked={settings.webdav_autosync === 'true'}
+              onCheckedChange={onSwitchChange}
+            />
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );
