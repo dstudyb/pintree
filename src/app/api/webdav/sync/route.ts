@@ -8,16 +8,26 @@ export const dynamic = 'force-dynamic';
 
 // === 1. 支持 GET 请求 (用于 Vercel Cron 自动定时备份) ===
 export async function GET(request: Request) {
-  // 1. 获取 Authorization 头
+  // 1. 安全校验 (可选，建议本地调试时注释掉，上线时开启)
   const authHeader = request.headers.get('authorization');
-
-  // 2. 校验 Vercel 自动注入的密钥
-  // 注意：在本地开发环境调试时，可以把这个判断暂时注释掉，或者手动在 Header 里加
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  // 3. 验证通过，执行备份
+  // 2. === 新增：检查开关状态 ===
+  const autoSyncSetting = await prisma.siteSetting.findUnique({
+    where: { key: 'webdav_autosync' }
+  });
+
+  // 如果数据库里没记录，或者值为 "false"，则跳过备份
+  if (!autoSyncSetting || autoSyncSetting.value !== 'true') {
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Skipped: Auto-sync is disabled in settings.' 
+    });
+  }
+
+  // 3. 开关已开启，执行上传
   return handleSync('upload', null);
 }
 
