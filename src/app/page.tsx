@@ -61,6 +61,19 @@ function SearchParamsComponent() {
             setCollectionName(currentCollection.name);
           }
         } else {
+          // ================= 再次修改点: 智能判断数量 =================
+          if (data.length === 1) {
+            // 场景 A: 只有一个集合 -> 自动选中，直接进入，不显示列表页
+            const singleCollection = data[0];
+            setSelectedCollectionId(singleCollection.id);
+            setCollectionName(singleCollection.name);
+            
+            // 建议：顺便更新一下 URL，这样用户分享链接时能带上 collection 参数
+            // 注意：这可能会触发 useEffect 再次运行，但因为有 collectionSlug 判断，是安全的
+            // 如果不想 URL 变动，可以把下面这行注释掉
+            routeToFolderInCollection(singleCollection); 
+            
+        } else {
           // ================= 修改点 2: 移除默认选中逻辑 =================
           // 原代码：const defaultCollection = data[0]; 强制选中第一个
           // 新代码：如果没有 slug，确保不选中任何集合，以便显示列表页
