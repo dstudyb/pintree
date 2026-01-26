@@ -130,10 +130,11 @@ model Image {
   updatedAt   DateTime    @updatedAt
 }
 
-// WebDAV模型
+// 系统通用设置模型 (用于WebDAV, 背景图等)
 model SystemSetting {
-  id        String   @id @default(cuid())
-  key       String   @unique // 例如: "webdav_config"
-  value     String   // 存储 JSON 格式的配置信息
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique // 例如: "webdav_config", "main_background"
+  value       String   // 存储设置值
+  description String?  // 描述信息 (新增字段)
+  updatedAt   DateTime @updatedAt
 }
