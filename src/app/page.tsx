@@ -156,7 +156,10 @@ function SearchParamsComponent() {
 
   return (
     <div 
-      className="flex min-h-screen flex-col bg-background transition-all duration-500 ease-in-out"
+      // ================= 修改点 5: 锁定页面高度禁止整体滚动 =================
+      // 原 min-h-screen 改为 h-screen, 并添加 overflow-hidden
+      className="flex h-screen w-full flex-col overflow-hidden bg-background transition-all duration-500 ease-in-out"
+      // ======================================================================
       style={{
         // 如果有背景图，应用背景图；否则保持默认
         backgroundImage: bgImage ? `url(${bgImage})` : undefined,
@@ -168,7 +171,10 @@ function SearchParamsComponent() {
       {/* ================= 修改点: 动态应用透明度遮罩 ================= */}
       {/* 移除硬编码的 bg-background/85，改用 style 动态设置背景色透明度 */}
       <div 
-        className={`flex min-h-screen flex-col ${bgImage ? 'backdrop-blur-sm' : ''}`}
+        // ================= 修改点 6: 遮罩层也跟随锁定高度 =================
+        // 原 min-h-screen 改为 h-full
+        className={`flex h-full flex-col ${bgImage ? 'backdrop-blur-sm' : ''}`}
+        // =================================================================
         style={{
           // 使用 Shadcn UI 标准 CSS 变量动态计算带透明度的背景色
           // 这样既能保持深色/浅色模式适配，又能控制遮罩浓度
@@ -179,9 +185,14 @@ function SearchParamsComponent() {
         
         <TopBanner />
         
-        <div className="flex flex-1">
+        {/* ================= 修改点 7: 容器 overflow 限制 ================= */}
+        {/* 添加 overflow-hidden 禁止此容器产生滚动条 */}
+        <div className="flex flex-1 overflow-hidden">
+        {/* ================================================================ */}
           {!isLoading && collections.length > 0 && !selectedCollectionId ? (
-             <div className="flex-1 container mx-auto px-4 py-12">
+             // ================= 修改点 8: Discover 页允许垂直滚动 =================
+             <div className="flex-1 container mx-auto px-4 py-12 overflow-y-auto">
+             {/* ==================================================================== */}
              <div className="text-center mb-12">
                <h1 className="text-4xl font-bold tracking-tight mb-4">Discover Collections</h1>
                <p className="text-lg text-muted-foreground">Select a collection to browse bookmarks.</p>
@@ -222,7 +233,12 @@ function SearchParamsComponent() {
 
            </div>
           ) : (
-            <SidebarProvider>
+            // ================= 修改点 9: 强制 SidebarProvider 撑满且不溢出 =================
+            <SidebarProvider
+              style={{ minHeight: "100%", height: "100%" } as React.CSSProperties}
+              className="flex w-full h-full"
+            >
+            {/* ============================================================================ */}
             {
             isLoading && !collections.length ? (
               <div className="flex flex-1 items-center justify-center">
@@ -247,7 +263,7 @@ function SearchParamsComponent() {
                   
                   <div 
                     id="main-scroll-container" 
-                    // ================= 修改点 4: 添加 pb-10 防止内容贴底 =================
+                    // ================= 修改点 4: 添加 pb-15 防止内容贴底 =================
                     className="flex-1 overflow-y-auto pb-15"
                     // =====================================================================
                   >
@@ -273,7 +289,9 @@ function SearchParamsComponent() {
                 <BackToTop scrollContainerId="main-scroll-container" />
               </>
             ) : (
-              <div className="flex flex-1">
+              // ================= 修改点 10: GetStarted 区域允许滚动 =================
+              <div className="flex flex-1 h-full overflow-y-auto">
+              {/* ==================================================================== */}
                 <GetStarted />
               </div>
             )}
