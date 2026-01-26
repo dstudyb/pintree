@@ -10,7 +10,25 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+// ================= 修改点 1: 引入更多 Lucide 图标 =================
+import { 
+  ChevronRight, 
+  Folder, 
+  FolderOpen,
+  // 新增预设图标
+  Film,       // 影视
+  Music,      // 音乐
+  Gamepad2,   // 游戏
+  Code2,      // 代码/开发
+  Book,       // 书籍/阅读
+  Image as ImageIcon, // 图片 (重命名避免冲突)
+  Monitor,    // 科技/设备
+  Globe,      // 网络
+  Coffee,     // 生活
+  Briefcase,  // 工作
+  GraduationCap // 学习
+} from "lucide-react";
+// ===============================================================
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,7 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingImages } from "@/hooks/useSettingImages";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
-// ... (接口定义保持不变) ...
+// ... (Collection 和 FolderNode 接口定义保持不变) ...
 interface Collection {
   id: string;
   name: string;
@@ -41,13 +59,34 @@ interface WebsiteSidebarProps {
   currentFolderId: string | null;
 }
 
+// ================= 修改点 2: 定义图标映射表 =================
+// 键名就是您在数据库/文件夹设置里填写的字符串
+const PREDEFINED_ICONS: Record<string, React.ComponentType<any>> = {
+  "movie": Film,
+  "film": Film,
+  "music": Music,
+  "game": Gamepad2,
+  "code": Code2,
+  "dev": Code2,
+  "book": Book,
+  "read": Book,
+  "image": ImageIcon,
+  "photo": ImageIcon,
+  "tech": Monitor,
+  "web": Globe,
+  "life": Coffee,
+  "work": Briefcase,
+  "study": GraduationCap
+};
+// ==========================================================
+
 export function WebsiteSidebar({
   onFolderSelect,
   onCollectionChange,
   selectedCollectionId,
   currentFolderId,
 }: WebsiteSidebarProps) {
-  // ... (Hooks 和 useEffect 逻辑完全保持不变) ...
+  // ... (状态和 Hooks 保持不变) ...
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -59,7 +98,7 @@ export function WebsiteSidebar({
 
   const { images, isLoading, error } = useSettingImages("logoUrl");
 
-  // ... (fetchCollections useEffect 保持不变) ...
+  // ... (useEffect fetchCollections 保持不变) ...
   useEffect(() => {
     const fetchCollections = async () => {
       try {
@@ -68,18 +107,15 @@ export function WebsiteSidebar({
         const data = await response.json();
 
         if (!Array.isArray(data)) {
-          console.error("API returned data format is incorrect");
           setCollections([]);
           return;
         }
 
-        const publicCollections = data;
-        setCollections(publicCollections);
+        setCollections(data);
 
-        if (publicCollections.length > 0 && !selectedCollectionId) {
-          const firstCollection = publicCollections[0];
+        if (data.length > 0 && !selectedCollectionId) {
           if (onCollectionChange) {
-            onCollectionChange(firstCollection.id);
+            onCollectionChange(data[0].id);
           }
         }
       } catch (error) {
@@ -92,7 +128,7 @@ export function WebsiteSidebar({
     fetchCollections();
   }, []);
 
-  // ... (fetchFolders useEffect 保持不变) ...
+  // ... (useEffect fetchFolders 保持不变) ...
   useEffect(() => {
     if (selectedCollectionId) {
       const fetchFolders = async () => {
@@ -111,7 +147,7 @@ export function WebsiteSidebar({
     }
   }, [selectedCollectionId]);
 
-  // ... (expandFolders useEffect 保持不变) ...
+  // ... (useEffect expandFolders 保持不变) ...
   useEffect(() => {
     if (currentFolderId && folders.length > 0) {
       const expandParentFolders = (folderId: string) => {
@@ -141,7 +177,7 @@ export function WebsiteSidebar({
     }
   }, [currentFolderId, folders]);
 
-  // ... (buildFolderTree 函数保持不变) ...
+  // ... (buildFolderTree 保持不变) ...
   const buildFolderTree = (folders: any[]): FolderNode[] => {
     const folderMap = new Map();
     folders.forEach((folder) => {
@@ -204,83 +240,93 @@ export function WebsiteSidebar({
   };
 
   const renderFolderTree = (folders: FolderNode[]) => {
-    return folders.map((folder) => (
-      <div key={folder.id}>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            onClick={() => handleFolderSelect(folder.id)}
-            // ================= 修改点 1: 优化选中样式 =================
-            // 移除 bg-gray-200/50，改为更通用的 hover/active 样式
-            // 选中状态使用 bg-accent/60 backdrop-blur-sm (与顶部导航栏一致)
-            className={cn(
-              "flex items-center w-full rounded-xl transition-all duration-200",
-              "hover:bg-accent/40 active:bg-accent/50", 
-              currentFolderId === folder.id 
-                ? "bg-accent/60 backdrop-blur-sm text-accent-foreground font-medium shadow-sm" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            // =========================================================
-            style={{
-              paddingLeft: `${folder.level * 5 + 12}px`,
-            }}
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="flex items-center w-8">
-                {folder.children.length > 0 ? (
-                  <ChevronRight
-                    className={cn(
-                      "h-4 w-4 shrink-0 transition-transform",
-                      expandedFolders.has(folder.id) && "rotate-90",
-                      // 移除特定颜色，让其继承父级颜色
-                      currentFolderId === folder.id && "text-current"
-                    )}
-                    onClick={(e) => toggleFolder(folder.id, e)}
-                  />
-                ) : (
-                  <div className="w-4" />
-                )}
-                
-                {/* ================= 修改点: 支持自定义图标渲染 ================= */}
-                {folder.icon ? (
-                  // 如果有 icon 字段，显示图片
-                  <img
-                    src={folder.icon}
-                    alt={folder.name}
-                    className="h-4 w-4 shrink-0 object-contain"
-                  />
-                ) : (
-                  // 否则显示默认文件夹图标
-                  expandedFolders.has(folder.id) ? (
-                    <FolderOpen
+    return folders.map((folder) => {
+      // ================= 修改点 3: 获取对应的图标组件 =================
+      // 如果 folder.icon 是预设的关键词（如 "movie"），则获取对应的组件
+      const PredefinedIcon = folder.icon ? PREDEFINED_ICONS[folder.icon.toLowerCase()] : null;
+      // ==============================================================
+
+      return (
+        <div key={folder.id}>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => handleFolderSelect(folder.id)}
+              className={cn(
+                "flex items-center w-full rounded-xl transition-all duration-200",
+                "hover:bg-accent/40 active:bg-accent/50", 
+                currentFolderId === folder.id 
+                  ? "bg-accent/60 backdrop-blur-sm text-accent-foreground font-medium shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              style={{
+                paddingLeft: `${folder.level * 5 + 12}px`,
+              }}
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex items-center w-8">
+                  {folder.children.length > 0 ? (
+                    <ChevronRight
                       className={cn(
-                        "h-4 w-4 shrink-0 fill-current",
+                        "h-4 w-4 shrink-0 transition-transform",
+                        expandedFolders.has(folder.id) && "rotate-90",
                         currentFolderId === folder.id && "text-current"
                       )}
+                      onClick={(e) => toggleFolder(folder.id, e)}
                     />
                   ) : (
-                    <Folder
+                    <div className="w-4" />
+                  )}
+                  
+                  {/* ================= 修改点 4: 渲染图标逻辑 ================= */}
+                  {PredefinedIcon ? (
+                    // 1. 如果是预设图标 (movie, code, etc.) -> 渲染 Lucide 组件
+                    <PredefinedIcon 
                       className={cn(
-                        "h-4 w-4 shrink-0 fill-current",
-                        currentFolderId === folder.id && "text-current"
-                      )}
+                        "h-4 w-4 shrink-0",
+                        currentFolderId === folder.id ? "text-current" : "text-muted-foreground" // 自动跟随颜色
+                      )} 
                     />
-                  )
-                )}
-                {/* ============================================================ */}
+                  ) : folder.icon ? (
+                    // 2. 如果是 URL 图片 -> 渲染 img
+                    <img
+                      src={folder.icon}
+                      alt={folder.name}
+                      className="h-4 w-4 shrink-0 object-contain"
+                    />
+                  ) : (
+                    // 3. 默认文件夹图标
+                    expandedFolders.has(folder.id) ? (
+                      <FolderOpen
+                        className={cn(
+                          "h-4 w-4 shrink-0 fill-current",
+                          currentFolderId === folder.id && "text-current"
+                        )}
+                      />
+                    ) : (
+                      <Folder
+                        className={cn(
+                          "h-4 w-4 shrink-0 fill-current",
+                          currentFolderId === folder.id && "text-current"
+                        )}
+                      />
+                    )
+                  )}
+                  {/* ======================================================== */}
 
+                </div>
+                <span className="truncate">
+                  {folder.name}
+                </span>
               </div>
-              <span className="truncate">
-                {folder.name}
-              </span>
-            </div>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
 
-        {expandedFolders.has(folder.id) && folder.children.length > 0 && (
-          <div>{renderFolderTree(folder.children)}</div>
-        )}
-      </div>
-    ));
+          {expandedFolders.has(folder.id) && folder.children.length > 0 && (
+            <div>{renderFolderTree(folder.children)}</div>
+          )}
+        </div>
+      );
+    });
   };
 
   const handleFolderSelect = (folderId: string) => {
@@ -324,11 +370,7 @@ export function WebsiteSidebar({
   };
 
   return (
-    // ================= 修改点 2: 侧边栏容器样式优化 =================
-    // 移除 bg-[#F9F9F9]，改为 bg-background/60 backdrop-blur-md 以支持毛玻璃效果
-    // 添加 border-r border-border/40 让边缘更柔和
     <Sidebar className="flex flex-col h-screen bg-background/60 backdrop-blur-md border-r border-border/40">
-    {/* ================================================================ */}
       <SidebarHeader className="flex-shrink-0">
         <SidebarMenu>
           <SidebarMenuItem>
