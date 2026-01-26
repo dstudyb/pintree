@@ -26,11 +26,13 @@ export function CollectionsNav({ collections }: CollectionsNavProps) {
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="bg-transparent text-foreground/80 hover:text-foreground focus:bg-accent/50">
+          {/* 修改点 1: 触发按钮也加上半透明效果，使其更融合 */}
+          <NavigationMenuTrigger className="bg-transparent text-foreground/80 hover:text-foreground hover:bg-accent/50 focus:bg-accent/50">
             Collections
           </NavigationMenuTrigger>
           
-          <NavigationMenuContent>
+          {/* 修改点 2: 下拉菜单背景改为半透明毛玻璃 */}
+          <NavigationMenuContent className="bg-background/80 backdrop-blur-md">
             <ul className="grid w-[300px] gap-2 p-2 md:w-[400px]">
               {collections.map((collection) => (
                 <ListItem
@@ -38,7 +40,10 @@ export function CollectionsNav({ collections }: CollectionsNavProps) {
                   title={collection.name}
                   href={`/?collection=${collection.slug}`}
                   className={cn(
-                    currentSlug === collection.slug && "bg-accent text-accent-foreground"
+                    // ================= 修改点 3: 选中状态改为半透明 + 毛玻璃 =================
+                    // 原来是 "bg-accent"，现在改为 "bg-accent/60 backdrop-blur-sm"
+                    currentSlug === collection.slug && "bg-accent/60 backdrop-blur-sm text-accent-foreground"
+                    // =======================================================================
                   )}
                 >
                   {collection.description || "No description provided."}
@@ -73,7 +78,10 @@ const ListItem = React.forwardRef<React.ElementRef<"a">, ListItemProps>(
             ref={ref as any}
             href={href} // 显式传递 href
             className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+              // ================= 修改点 4: 悬停 (Hover) 状态也改为半透明 =================
+              // 原来是 hover:bg-accent，现在改为 hover:bg-accent/50
+              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent/50 hover:text-accent-foreground focus:bg-accent/50 focus:text-accent-foreground",
+              // =========================================================================
               className
             )}
             {...props}
