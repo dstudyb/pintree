@@ -29,6 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+// ================= 修改点 1: 引入移动书签组件 =================
+import { MoveBookmarkDialog } from "./move-bookmark-dialog";
+// ============================================================
 
 interface Bookmark {
   id: string;
@@ -44,8 +47,8 @@ interface Bookmark {
   folder?: {
     name: string;
   };
-  createdAt: string; // 添加建时间
-  updatedAt: string; // 添加更新时间
+  createdAt: string; 
+  updatedAt: string; 
 }
 
 interface Folder {
@@ -63,7 +66,7 @@ interface BookmarkDataTableProps {
   folders: Folder[];
   bookmarks: {
     currentBookmarks: Bookmark[];
-    subfolders: any[]; // 如果需要使用 subfolders，可以定义更具体的类型
+    subfolders: any[]; 
   };
   currentFolderId?: string;
   onFolderClick: (folderId: string) => void;
@@ -89,6 +92,9 @@ type TableItem = {
     name: string;
   };
   collectionId: string;
+  // ================= 修改点 2: 类型定义增加 folderId =================
+  folderId?: string | null;
+  // =================================================================
 };
 
 export function BookmarkDataTable({
@@ -108,11 +114,6 @@ export function BookmarkDataTable({
   const safeBookmarks = Array.isArray(currentBookmarks) ? currentBookmarks : [];
   const safeFolders = Array.isArray(folders) ? folders : [];
 
-  console.log('Raw bookmarks:', bookmarks);
-  console.log('Safe bookmarks:', safeBookmarks);
-  console.log('Raw folders:', folders);
-  console.log('Safe folders:', safeFolders);
-
   const tableData = [
     ...safeFolders.map(folder => ({
       id: folder.id,
@@ -124,7 +125,8 @@ export function BookmarkDataTable({
       icon: folder.icon,
       createdAt: folder.createdAt,
       updatedAt: folder.updatedAt,
-      collectionId
+      collectionId,
+      folderId: folder.parentId // 文件夹的 folderId 相当于它的 parentId
     })),
     ...safeBookmarks.map(bookmark => ({
       id: bookmark.id,
@@ -137,11 +139,12 @@ export function BookmarkDataTable({
       createdAt: bookmark.createdAt,
       updatedAt: bookmark.updatedAt,
       viewCount: bookmark.viewCount,
-      collectionId: bookmark.collectionId
+      collectionId: bookmark.collectionId,
+      // ================= 修改点 3: 映射 folderId =================
+      folderId: bookmark.folderId
+      // ==========================================================
     }))
   ];
-
-  console.log('Processed tableData:', tableData);
 
   if (loading) {
     return (
@@ -320,6 +323,23 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
           <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
             Edit
           </DropdownMenuItem>
+
+          {/* ================= 修改点 4: 添加移动书签按钮 ================= */}
+          {item.type === "bookmark" && (
+            // 这里传入 asDropdownItem 让它作为菜单项渲染
+            // 注意：MoveBookmarkDialog 需要支持 onSuccess 属性来刷新列表
+            // 如果你的 MoveBookmarkDialog 还没加 onSuccess，记得去加一下
+            // (Props 定义里加上 onSuccess?: () => void，然后在成功时调用)
+            <MoveBookmarkDialog 
+              bookmarkId={item.id}
+              currentFolderId={item.folderId || null}
+              asDropdownItem={true}
+              // @ts-ignore - 暂时忽略类型检查，确保你的组件支持此属性
+              onSuccess={onUpdate} 
+            />
+          )}
+          {/* ============================================================= */}
+
           <DropdownMenuItem 
             onClick={() => setIsDeleteDialogOpen(true)}
             className="text-red-600"
