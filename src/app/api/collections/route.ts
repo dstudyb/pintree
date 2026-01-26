@@ -82,7 +82,21 @@ export async function POST(request: Request) {
     }
 
     // 检查是否已经存在任何集合
+    // 已删除的代码
+/*
+const existingCollections = await prisma.collection.findMany({
+  take: 1,
+});
 
+if (existingCollections.length > 0) {
+  return NextResponse.json(
+    {
+      error: "A collection already exists. Cannot create another collection.",
+    },
+    { status: 403 }
+  );
+}
+*/
     //删除的上方内容
 
 
