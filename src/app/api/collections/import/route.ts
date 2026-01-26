@@ -21,12 +21,14 @@ export async function POST(request: NextRequest) {
     const { name, description, bookmarks, collectionId, folderMap } =
       await request.json();
 
+    // ================= 修改点：移除单集合限制 =================
     // Prevent import if any other collection already exists
-    const existingCollectionsCount = await prisma.collection.count();
+    // const existingCollectionsCount = await prisma.collection.count();
 
-    if (existingCollectionsCount > 0 && !collectionId) {
-      throw new Error("Cannot create new collection: collections already exist");
-    }
+    // if (existingCollectionsCount > 0 && !collectionId) {
+    //   throw new Error("Cannot create new collection: collections already exist");
+    // }
+    // ========================================================
 
     let targetCollection;
     let insideFolderMap: { [key: string]: string }[] = folderMap || [];
