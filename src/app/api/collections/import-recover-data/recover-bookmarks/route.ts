@@ -13,13 +13,14 @@ export async function POST(
     // Parse imported data
     const { bookmarks, collectionId, folderMap } = await request.json();
     
+    // ================= 修改点：移除单集合限制 =================
     // Prevent import if any other collection already exists
-    const existingCollectionsCount = await prisma.collection.count();
+    // const existingCollectionsCount = await prisma.collection.count();
 
-    if (existingCollectionsCount > 0 && !collectionId) {
-      throw new Error("Cannot create new collection: collections already exist");
-    }
-    
+    // if (existingCollectionsCount > 0 && !collectionId) {
+    //   throw new Error("Cannot create new collection: collections already exist");
+    // }
+    // ========================================================
 
     // Set concurrency limit, for example, process 5 bookmarks simultaneously
     const limit = pLimit(10);
