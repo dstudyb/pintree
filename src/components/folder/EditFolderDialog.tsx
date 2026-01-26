@@ -147,7 +147,7 @@ export function EditFolderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* ================= 修改点 4: 添加滚动和高度限制 ================= */}
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto hide-scrollbar">
       {/* ============================================================== */}
         <DialogHeader>
           <DialogTitle>Edit Folder</DialogTitle>
