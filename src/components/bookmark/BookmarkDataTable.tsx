@@ -320,32 +320,33 @@ function TableActions({ item, onUpdate }: { item: TableItem; onUpdate: () => voi
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          
+          {/* ================= 修改点 4: 编辑按钮（纯文字，无图标） ================= */}
           <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
             Edit
           </DropdownMenuItem>
+          {/* ==================================================================== */}
 
-          {/* ================= 修改点 4: 添加移动书签按钮 ================= */}
+          {/* ================= 修改点 5: 移动书签按钮（组件内也已改为纯文字） ================= */}
           {item.type === "bookmark" && (
-            // 这里传入 asDropdownItem 让它作为菜单项渲染
-            // 注意：MoveBookmarkDialog 需要支持 onSuccess 属性来刷新列表
-            // 如果你的 MoveBookmarkDialog 还没加 onSuccess，记得去加一下
-            // (Props 定义里加上 onSuccess?: () => void，然后在成功时调用)
             <MoveBookmarkDialog 
               bookmarkId={item.id}
               currentFolderId={item.folderId || null}
-              asDropdownItem={true}
-              // @ts-ignore - 暂时忽略类型检查，确保你的组件支持此属性
+              asDropdownItem={true} 
               onSuccess={onUpdate} 
             />
           )}
-          {/* ============================================================= */}
+          {/* ============================================================================= */}
 
+          {/* ================= 修改点 6: 删除按钮（纯文字，无图标） ================= */}
           <DropdownMenuItem 
             onClick={() => setIsDeleteDialogOpen(true)}
             className="text-red-600"
           >
             Delete
           </DropdownMenuItem>
+          {/* ==================================================================== */}
+
         </DropdownMenuContent>
       </DropdownMenu>
 
