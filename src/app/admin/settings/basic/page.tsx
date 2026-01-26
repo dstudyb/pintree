@@ -33,13 +33,19 @@ import {
 import { useRouter } from "next/navigation";
 
 import { revalidateData } from "@/actions/revalidate-data";
-
-
+// ================= 修改点 1: 引入图标 =================
+import { Image as ImageIcon } from "lucide-react"; 
+// ====================================================
 
 export default function BasicSettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"basicInfo" |"statistics" | "footerSettings" | "socialMedia">("basicInfo");
   const [loading, setLoading] = useState(false);
+  
+  // ================= 修改点 2: 新增背景图状态 =================
+  const [bgUrl, setBgUrl] = useState("");
+  // ==========================================================
+
   const [settings, setSettings] = useState({
     websiteName: "",
     logoUrl: "",
@@ -64,28 +70,30 @@ export default function BasicSettingsPage() {
     const loadSettings = async () => {
       setLoading(true);
       try {
+        // 1. 加载基础设置
         const response = await fetch("/api/settings?group=basic");
         if (!response.ok) {
           const errorData = await response.json();
-          console.error("Load settings failed:", errorData); // 调试日志
           throw new Error(errorData.error || "Load settings failed");
         }
-
         const data = await response.json();
-        console.log("Loaded settings:", data); // 调试日志
-
         const sanitizedData = Object.keys(data).reduce(
           (acc, key) => ({
             ...acc,
-            [key]: data[key] ?? "", // 使用空字符串替代 undefined
+            [key]: data[key] ?? "",
           }),
           {}
         );
+        setSettings((prev) => ({ ...prev, ...sanitizedData }));
 
-        setSettings((prev) => ({
-          ...prev,
-          ...sanitizedData,
-        }));
+        // ================= 修改点 3: 加载背景图设置 =================
+        const bgResponse = await fetch("/api/settings/background");
+        if (bgResponse.ok) {
+          const bgData = await bgResponse.json();
+          if (bgData.url) setBgUrl(bgData.url);
+        }
+        // ==========================================================
+
       } catch (error) {
         console.error("Load settings error:", error);
         toast.error(error instanceof Error ? error.message : "Load settings failed");
@@ -111,10 +119,10 @@ export default function BasicSettingsPage() {
     e.preventDefault();
     try {
       setLoading(true);
-      console.log("Submitted settings for tab:", activeTab); // 调试日志
-  
+      console.log("Submitted settings for tab:", activeTab); 
+   
       const saveSettingPromises = [];
-  
+   
       // 根据当前标签页筛选需要保存的设置项
       const settingsToSave = (() => {
         switch (activeTab) {
@@ -148,12 +156,12 @@ export default function BasicSettingsPage() {
             return {};
         }
       })();
-  
+   
       // 处理图片上传（仅针对基本信息标签页）
       if (activeTab === "basicInfo") {
         const logoInput = document.getElementById('logoUrl') as HTMLInputElement;
         const faviconInput = document.getElementById('faviconUrl') as HTMLInputElement;
-  
+   
         if (logoInput && logoInput.files && logoInput.files.length > 0) {
           const logoFile = logoInput.files[0];
           const logoFormData = new FormData();
@@ -163,7 +171,7 @@ export default function BasicSettingsPage() {
             updateSettingImage(logoFormData)
           );
         }
-  
+   
         if (faviconInput && faviconInput.files && faviconInput.files.length > 0) {
           const faviconFile = faviconInput.files[0];
           const faviconFormData = new FormData();
@@ -173,8 +181,18 @@ export default function BasicSettingsPage() {
             updateSettingImage(faviconFormData)
           );
         }
+
+        // ================= 修改点 4: 保存背景图设置 =================
+        saveSettingPromises.push(
+          fetch("/api/settings/background", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: bgUrl }),
+          })
+        );
+        // ==========================================================
       }
-  
+   
       // 添加基本设置保存到 saveSettingPromises
       saveSettingPromises.push(
         fetch("/api/settings", {
@@ -184,20 +202,17 @@ export default function BasicSettingsPage() {
         }).then(async response => {
           if (!response.ok) {
             const errorData = await response.json();
-            console.error("API error response:", errorData);
             throw new Error(errorData.error || "Save failed");
           }
           return response.json();
-        }).then(result => {
-          console.log("Save success:", result); // 调试日志
         })
       );
-  
+   
       // 并行处理所有操作
       await Promise.all(saveSettingPromises);
-  
+   
       toast.success(`Settings saved`);
-
+ 
       revalidateData();
     } catch (error) {
       console.error("Save settings failed:", error);
@@ -256,12 +271,46 @@ export default function BasicSettingsPage() {
                       <Label>Website Favicon</Label>
                       <FaviconUploader />
                     </div>
+
+                    {/* ================= 修改点 5: 背景图设置 UI ================= */}
+                    <div className="grid gap-2 pt-4 border-t mt-2">
+                      <Label htmlFor="bgUrl">Main Page Background URL</Label>
+                      <div className="relative">
+                        <ImageIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="bgUrl"
+                          placeholder="https://example.com/background.jpg"
+                          value={bgUrl}
+                          onChange={(e) => setBgUrl(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      <p className="text-[0.8rem] text-muted-foreground">
+                        Enter a direct link to an image (JPG, PNG, WebP). Leave empty to use default theme.
+                      </p>
+                      
+                      {/* 可选：简单的图片预览 */}
+                      {bgUrl && (
+                        <div className="mt-2 border rounded-md overflow-hidden h-32 relative bg-muted w-full max-w-md">
+                          <div 
+                            className="absolute inset-0 bg-cover bg-center"
+                            style={{ backgroundImage: `url(${bgUrl})` }}
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-1 text-xs text-center">
+                            Preview
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* ========================================================== */}
+
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
             <TabsContent value="statistics">
+              {/* ... 统计设置保持不变 ... */}
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground font-normal">
                   Statistics Code
@@ -336,8 +385,7 @@ export default function BasicSettingsPage() {
   );
 }
 
-
-// 添加 Logo 上传组件
+// LogoUploader 和 FaviconUploader 保持不变...
 function LogoUploader() {
   const { images, isLoading, error } = useSettingImages("logoUrl");
   const [currentLogoUrl, setCurrentLogoUrl] = useState("");
