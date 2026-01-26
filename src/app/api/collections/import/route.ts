@@ -14,6 +14,9 @@ interface FlattenedBookmarkItem {
   addDate?: number;
   url?: string;
   icon?: string;
+  // ================= 修改点 1: 增加 description 类型定义 =================
+  description?: string;
+  // =====================================================================
 }
 
 export async function POST(request: NextRequest) {
@@ -21,14 +24,11 @@ export async function POST(request: NextRequest) {
     const { name, description, bookmarks, collectionId, folderMap } =
       await request.json();
 
-    // ================= 修改点：移除单集合限制 =================
-    // Prevent import if any other collection already exists
+    // Prevent import if any other collection already exists (Removed limitation)
     // const existingCollectionsCount = await prisma.collection.count();
-
     // if (existingCollectionsCount > 0 && !collectionId) {
     //   throw new Error("Cannot create new collection: collections already exist");
     // }
-    // ========================================================
 
     let targetCollection;
     let insideFolderMap: { [key: string]: string }[] = folderMap || [];
@@ -137,6 +137,9 @@ export async function POST(request: NextRequest) {
               title: bookmark.title,
               url: bookmark.url || "",
               icon: bookmark.icon,
+              // ================= 修改点 2: 写入 description =================
+              description: bookmark.description || "", 
+              // ==========================================================
               collectionId: targetCollection.id,
               folderId: folderId,
               sortOrder: bookmark.sortOrder,
