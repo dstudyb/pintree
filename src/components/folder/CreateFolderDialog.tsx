@@ -22,7 +22,7 @@ import {
   Folder as FolderIcon, // 重命名避免与接口冲突
   Film, Music, Gamepad2, Code2, Book, Image as ImageIcon, 
   Monitor, Globe, Coffee, Briefcase, GraduationCap, 
-  ShoppingCart, Cloud, Wrench, Plane
+  ShoppingCart, Cloud, Wrench, Send, Plane, Map-pinned, Hard-drive-download
 } from "lucide-react";
 // ==============================================================
 
@@ -55,7 +55,10 @@ const ICON_PRESETS = [
   { id: "shop", icon: ShoppingCart, label: "购物" },
   { id: "cloud", icon: Cloud, label: "云端" },
   { id: "tool", icon: Wrench, label: "工具" },
-  { id: "airport", icon: Wrench, Plane: "飞机" },
+  { id: "airport", icon: Plane, label: "飞机" },
+  { id: "map", icon: Map-pinned, label: "地图" },  
+  { id: "download", icon: Hard-drive-download, label: "下载" }, 
+  { id: "send", icon: Send, label: "发送" },   
 ];
 // ==========================================================
 
