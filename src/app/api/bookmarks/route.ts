@@ -28,6 +28,9 @@ export async function GET(request: Request) {
           description: true,
           icon: true,
           isFeatured: true,
+          // ================= 修改点 1: 确保取出 sortOrder 字段 =================
+          sortOrder: true, 
+          // =================================================================
           createdAt: true,
           collection: {
             select: {
@@ -42,9 +45,12 @@ export async function GET(request: Request) {
         },
         skip,
         take: pageSize,
-        orderBy: {
-          updatedAt: "desc",
-        },
+        // ================= 修改点 2: 默认按 sortOrder 升序排列 =================
+        orderBy: [
+          { sortOrder: 'asc' }, // 优先按自定义顺序排
+          { updatedAt: 'desc' } // 其次按更新时间排
+        ],
+        // ====================================================================
       })
     ]);
 
@@ -78,18 +84,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 创建书签的基础数据
-    const bookmarkData = {
-      title,
-      url,
-      description,
-      icon,
-      collectionId,
-      isFeatured: isFeatured ?? false,
-      sortOrder: sortOrder ?? 0,
-    };
-
-    // 如果提供了有效的 folderId，则添加到数据中
+    // 处理 folderId (处理 "none" 或 undefined 的情况)
+    let effectiveFolderId = null;
     if (folderId && folderId !== "none") {
       // 验证文件夹是否存在且属于正确的集合
       const folder = await prisma.folder.findUnique({
@@ -105,9 +101,39 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-
-      Object.assign(bookmarkData, { folderId });
+      effectiveFolderId = folderId;
     }
+
+    // ================= 修改点 3: 自动计算 sortOrder (排在最后) =================
+    // 查找当前位置（同一个集合、同一个文件夹）下，序号最大的书签
+    const lastBookmark = await prisma.bookmark.findFirst({
+      where: {
+        collectionId: collectionId,
+        folderId: effectiveFolderId, // 确保只在同级查找
+      },
+      orderBy: {
+        sortOrder: 'desc', // 倒序取第一个
+      },
+      select: {
+        sortOrder: true,
+      },
+    });
+
+    // 如果用户没传 sortOrder，则自动计算：最大序号 + 1
+    const newSortOrder = sortOrder ?? ((lastBookmark?.sortOrder ?? -1) + 1);
+    // ======================================================================
+
+    // 创建书签的基础数据
+    const bookmarkData = {
+      title,
+      url,
+      description,
+      icon,
+      collectionId,
+      isFeatured: isFeatured ?? false,
+      sortOrder: newSortOrder, // 使用计算后的序号
+      folderId: effectiveFolderId // 直接使用处理好的 folderId
+    };
 
     const bookmark = await prisma.bookmark.create({
       data: bookmarkData,
