@@ -25,7 +25,7 @@ import {
   Folder as FolderIcon,
   Film, Music, Gamepad2, Code2, Book, Image as ImageIcon, 
   Monitor, Globe, Coffee, Briefcase, GraduationCap, 
-  ShoppingCart, Cloud
+  ShoppingCart, Cloud, Wrench, Send, Plane, MapPinned, HardDriveDownload
 } from "lucide-react";
 // ==============================================================
 
@@ -62,6 +62,11 @@ const ICON_PRESETS = [
   { id: "study", icon: GraduationCap, label: "学习" },
   { id: "shop", icon: ShoppingCart, label: "购物" },
   { id: "cloud", icon: Cloud, label: "云端" },
+  { id: "tool", icon: Wrench, label: "工具" },
+  { id: "airport", icon: Plane, label: "飞机" },
+  { id: "map", icon: MapPinned, label: "地图" },  
+  { id: "download", icon: HardDriveDownload, label: "下载" }, 
+  { id: "send", icon: Send, label: "发送" },   
 ];
 // ==========================================================
 
