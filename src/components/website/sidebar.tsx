@@ -26,7 +26,13 @@ import {
   Globe,      // 网络
   Coffee,     // 生活
   Briefcase,  // 工作
-  GraduationCap // 学习
+  GraduationCap, // 学习
+  Cloud,
+  Wrench,
+  Send,
+  Plane,
+  MapPinned,
+  HardDriveDownload
 } from "lucide-react";
 // ===============================================================
 import { cn } from "@/lib/utils";
@@ -76,7 +82,13 @@ const PREDEFINED_ICONS: Record<string, React.ComponentType<any>> = {
   "web": Globe,
   "life": Coffee,
   "work": Briefcase,
-  "study": GraduationCap
+  "study": GraduationCap,
+  "cloud": Cloud,
+  "tool": Wrench,
+  "send": Send,
+  "airport": Plane,
+  "map": MapPinned,
+  "download": HardDriveDownload
 };
 // ==========================================================
 
