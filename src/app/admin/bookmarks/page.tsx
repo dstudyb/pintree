@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderPlus, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, FolderPlus, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { BookmarkDataTable } from "@/components/bookmark/BookmarkDataTable";
 import { CreateBookmarkDialog } from "@/components/bookmark/CreateBookmarkDialog";
 import { CreateFolderDialog } from "@/components/folder/CreateFolderDialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import Link from "next/link";
+import { ContentManager } from "@/components/admin/ContentManager"; // <--- 新增引入
 import {
   Select,
   SelectContent,
@@ -39,7 +38,11 @@ interface Bookmark {
   folderId?: string;
   folder?: {
     name: string;
-  };
+  } | null;
+  collection?: {
+    name: string;
+    slug: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,7 +53,8 @@ interface Folder {
   icon?: string;
   isPublic: boolean;
   sortOrder: number;
-  parentId: string | null;  // 添加这一行
+  parentId: string | null;
+  _count?: { bookmarks: number }; // 补充计数类型
   createdAt: string;
   updatedAt: string;
 }
@@ -58,21 +62,26 @@ interface Folder {
 export default function BookmarksPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false);
+  
+  // === 新增：视图模式状态 ('table' | 'sort') ===
+  const [viewMode, setViewMode] = useState<"table" | "sort">("table"); 
+  // ===========================================
+
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [bookmarks, setBookmarks] = useState<{
     currentBookmarks: Bookmark[];
-    subfolders: any[];
+    subfolders: Folder[];
   }>({
     currentBookmarks: [],
     subfolders: []
   });
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<"createdAt" | "updatedAt">("createdAt");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortField, setSortField] = useState<"createdAt" | "updatedAt" | "sortOrder">("sortOrder"); // 默认按顺序排
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>();
   const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string; parentId: string | null }>>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]); // 这里的 folders 实际上是 subfolders 的副本，或者可以统一使用 bookmarks.subfolders
   const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
@@ -88,11 +97,8 @@ export default function BookmarksPage() {
       const data = await response.json();
       setCollections(data);
       
-      // 获取 URL 中的 collection 参数
       const collectionId = searchParams.get("collection");
       
-      // 如果 URL 中有 collection 参数，则使用该值
-      // 否则，如果有集合数据，则使用第一个集合的 ID
       if (collectionId) {
         setSelectedCollectionId(collectionId);
         Promise.all([
@@ -124,25 +130,18 @@ export default function BookmarksPage() {
         ...(currentFolderId ? { folderId: currentFolderId } : {})
       });
       
-      console.log("Fetching bookmarks with params:", {
-        collectionId,
-        sortField,
-        sortOrder,
-        currentFolderId,
-        url: `/api/admin/collections/${collectionId}/bookmarks?${queryParams}`
-      });
-
       const response = await fetch(
         `/api/admin/collections/${collectionId}/bookmarks?${queryParams}`
       );
       const data = await response.json();
-      console.log("Received bookmarks data:", data);
       
-      // 确保设置正确的数据结构
       setBookmarks({
         currentBookmarks: data.currentBookmarks || [],
         subfolders: data.subfolders || []
       });
+      // 同时更新 folders 状态，保持一致
+      setFolders(data.subfolders || []);
+
     } catch (error) {
       console.error("获取书签失败:", error);
     } finally {
@@ -163,32 +162,29 @@ export default function BookmarksPage() {
     }
   };
 
-  const handleSortChange = async (field: "createdAt" | "updatedAt", order: "asc" | "desc") => {
-    console.log("handleSortChange called with:", { field, order });
+  const handleSortChange = async (field: any, order: any) => {
     setSortField(field);
     setSortOrder(order);
     
     if (selectedCollectionId) {
-      console.log("Fetching bookmarks with new sort:", { field, order, selectedCollectionId });
       await fetchBookmarks(selectedCollectionId);
     }
   };
 
-  // 处理文件夹点击
   const handleFolderClick = async (folderId: string) => {
     try {
       setIsNavigating(true);
       setError(null);
 
-      // 获取目标文件夹的路径
       const pathResponse = await fetch(`/api/collections/${selectedCollectionId}/folders/${folderId}/path`);
       const pathData = await pathResponse.json();
       
-      // 更新状态
       setCurrentFolderId(folderId);
       setFolderPath(pathData);
 
-      // 获取新文件夹的内容
+      // 切换文件夹时，如果不强制重置排序，可以保持当前排序偏好
+      // 但为了拖拽体验，建议进入新文件夹时默认使用 'sortOrder'
+      
       const [bookmarksResponse, foldersResponse] = await Promise.all([
         fetch(
           `/api/collections/${selectedCollectionId}/bookmarks?` + 
@@ -208,13 +204,11 @@ export default function BookmarksPage() {
       setFolders(foldersData);
     } catch (error) {
       setError("Failed to navigate to folder");
-      console.error(error);
     } finally {
       setIsNavigating(false);
     }
   };
 
-  // 处理文件夹导航
   const handleFolderBack = async (index: number) => {
     try {
       setIsNavigating(true);
@@ -224,20 +218,16 @@ export default function BookmarksPage() {
       let newPath: Array<{ id: string; name: string; parentId: string | null }>;
 
       if (index === -1) {
-        // 返回根目录
         targetFolderId = undefined;
         newPath = [];
       } else {
-        // 回到指定层级
         newPath = folderPath.slice(0, index + 1);
         targetFolderId = newPath[newPath.length - 1]?.id;
       }
 
-      // 更新状态
       setCurrentFolderId(targetFolderId);
       setFolderPath(newPath);
 
-      // 直接使用 targetFolderId 获取内容，而不是依赖于状态
       const [bookmarksResponse, foldersResponse] = await Promise.all([
         fetch(
           `/api/collections/${selectedCollectionId}/bookmarks?` + 
@@ -259,7 +249,6 @@ export default function BookmarksPage() {
       setFolders(foldersData);
     } catch (error) {
       setError("Navigate folder failed");
-      console.error(error);
     } finally {
       setIsNavigating(false);
     }
@@ -278,11 +267,9 @@ export default function BookmarksPage() {
     }
   };
 
-  // 修改 LoadingSkeleton 组件
   const LoadingSkeleton = () => {
     return (
       <div className="space-y-6">
-        {/* 顶部操作区域骨架屏 */}
         <div className="flex items-center justify-between mb-6">
           <Skeleton className="h-10 w-[200px]" />
           <div className="flex gap-2">
@@ -290,205 +277,177 @@ export default function BookmarksPage() {
             <Skeleton className="h-10 w-[120px]" />
           </div>
         </div>
-
-        {/* 文件夹导航路径骨架屏 */}
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-9 w-[60px]" />
-          <Skeleton className="h-4 w-4" /> {/* 箭头图标 */}
+          <Skeleton className="h-4 w-4" />
           <Skeleton className="h-9 w-[100px]" />
         </div>
-
-        {/* 表格骨架屏 */}
         <div className="rounded-lg border border-gray-200">
-          {/* 表头 */}
-          <div className="border-b border-gray-200 bg-gray-50/40">
-            <Skeleton className="h-12 w-full" />
-          </div>
-          
-          {/* 表格内容 */}
-          <div className="divide-y divide-gray-200">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center p-4 gap-4">
-                <Skeleton className="h-8 w-8 rounded-full" /> {/* 图标 */}
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-[200px]" /> {/* 标题 */}
-                  <Skeleton className="h-3 w-[300px]" /> {/* URL */}
-                </div>
-                <Skeleton className="h-4 w-[100px]" /> {/* 创建时间 */}
-                <Skeleton className="h-8 w-8 rounded-md" /> {/* 操作按钮 */}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 分页骨架屏 */}
-        <div className="flex items-center justify-end gap-2 mt-4">
-          <Skeleton className="h-10 w-[100px]" />
-          <Skeleton className="h-10 w-[100px]" />
+           <Skeleton className="h-[400px] w-full" />
         </div>
       </div>
     );
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col h-full">
       <AdminHeader 
         title="Bookmarks"
         action={
-          <Select
-            value={selectedCollectionId}
-            onValueChange={(value) => {
-              setSelectedCollectionId(value);
-              router.push(`/admin/bookmarks?collection=${value}`);
-              Promise.all([
-                fetchBookmarks(value),
-                fetchFolders(value)
-              ]);
-            }}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select a collection" />
-            </SelectTrigger>
-            <SelectContent>
-              {collections?.map((collection) => (
-                <SelectItem key={collection.id} value={collection.id}>
-                  {collection.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      >
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => setIsCreateFolderDialogOpen(true)}
-            disabled={!selectedCollectionId || loading}
-            variant="outline"
-          >
-            <FolderPlus className="w-4 h-4 mr-2" />
-            New Folder
-          </Button>
-          
-          <Button 
-            onClick={() => setIsCreateDialogOpen(true)}
-            disabled={!selectedCollectionId || loading}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Bookmark
-          </Button>
-        </div>
-      </AdminHeader>
+          <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+            <Select
+              value={selectedCollectionId}
+              onValueChange={(value) => {
+                setSelectedCollectionId(value);
+                router.push(`/admin/bookmarks?collection=${value}`);
+                Promise.all([
+                  fetchBookmarks(value),
+                  fetchFolders(value)
+                ]);
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select a collection" />
+              </SelectTrigger>
+              <SelectContent>
+                {collections?.map((collection) => (
+                  <SelectItem key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      <main className="flex-1 overflow-y-auto p-8 bg-card/50">
-        {loading ? (
-          <LoadingSkeleton />
-        ) : collections.length === 0 ? (
-          <div className="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed">
-            <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-10 w-10 text-muted-foreground"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setIsCreateFolderDialogOpen(true)}
+                disabled={!selectedCollectionId || loading}
+                variant="outline"
+                size="sm"
               >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <h3 className="mt-4 text-lg font-semibold">No bookmark collections</h3>
-              <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                Please create a bookmark collection first, then add bookmarks.
-              </p>
-              <Button asChild>
-                <Link href="/admin/collections">
-                  Create Collection
-                </Link>
+                <FolderPlus className="w-4 h-4 mr-2" />
+                New Folder
+              </Button>
+              
+              <Button 
+                onClick={() => setIsCreateDialogOpen(true)}
+                disabled={!selectedCollectionId || loading}
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Bookmark
               </Button>
             </div>
           </div>
+        }
+      />
+
+      <main className="flex-1 overflow-hidden p-4 md:p-8 bg-card/50 flex flex-col">
+        {loading ? (
+          <div className="overflow-y-auto">
+            <LoadingSkeleton />
+          </div>
+        ) : collections.length === 0 ? (
+          <div className="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed">
+            <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
+              <h3 className="mt-4 text-lg font-semibold">No bookmark collections</h3>
+              <p className="mb-4 mt-2 text-sm text-muted-foreground">
+                Please create a collection first.
+              </p>
+            </div>
+          </div>
         ) : (
-          <>
-            {/* 文件夹导航路径 - 始终显示 */}
-            <div className="flex items-center gap-2 mb-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleFolderBack(-1)}
-                className={!currentFolderId ? "bg-white" : ""}
-                disabled={isNavigating}
-              >
-                Root
-              </Button>
-              {folderPath.map((folder, index) => (
-                <Fragment key={folder.id}>
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFolderBack(index)}
-                    className={currentFolderId === folder.id ? "bg-white" : ""}
-                    disabled={isNavigating}
-                  >
-                    {folder.name}
-                  </Button>
-                </Fragment>
-              ))}
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* 顶部工具栏：面包屑导航 + 视图切换 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
+              {/* 文件夹导航路径 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleFolderBack(-1)}
+                  className={!currentFolderId ? "bg-white dark:bg-gray-800" : ""}
+                  disabled={isNavigating}
+                >
+                  Root
+                </Button>
+                {folderPath.map((folder, index) => (
+                  <Fragment key={folder.id}>
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleFolderBack(index)}
+                      className={currentFolderId === folder.id ? "bg-white dark:bg-gray-800" : ""}
+                      disabled={isNavigating}
+                    >
+                      {folder.name}
+                    </Button>
+                  </Fragment>
+                ))}
+              </div>
+
+              {/* 视图切换器 */}
+              <div className="flex items-center bg-muted/50 p-1 rounded-lg border">
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => setViewMode('table')}
+                >
+                  <List className="w-3.5 h-3.5 mr-1.5" />
+                  Table
+                </Button>
+                <Button
+                  variant={viewMode === 'sort' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => setViewMode('sort')}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />
+                  Sort
+                </Button>
+              </div>
             </div>
 
-            {/* 当没有书签和文件夹时显示空状态 */}
-            {bookmarks.currentBookmarks.length === 0 && bookmarks.subfolders.length === 0 ? (
-              <div className="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed">
-                <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    className="h-10 w-10 text-muted-foreground"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <h3 className="mt-4 text-lg font-semibold">No Content</h3>
-                  <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                    There is no content in the current folder. Start adding your first bookmark or folder.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button onClick={() => setIsCreateDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Bookmark
-                    </Button>
-                    <Button variant="outline" onClick={() => setIsCreateFolderDialogOpen(true)}>
-                      <FolderPlus className="mr-2 h-4 w-4" />
-                      New Folder
-                    </Button>
-                  </div>
+            {/* 内容区域 */}
+            <div className="flex-1 overflow-y-auto min-h-0 rounded-md border bg-background/50 shadow-sm p-1">
+              {bookmarks.currentBookmarks.length === 0 && bookmarks.subfolders.length === 0 ? (
+                 <div className="flex h-full items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Current folder is empty.</p>
+                      <Button variant="link" onClick={() => setIsCreateDialogOpen(true)}>Add your first bookmark</Button>
+                    </div>
+                 </div>
+              ) : viewMode === 'table' ? (
+                /* === 表格视图 === */
+                <BookmarkDataTable 
+                  collectionId={selectedCollectionId}
+                  folders={folders}
+                  bookmarks={bookmarks}
+                  currentFolderId={currentFolderId}
+                  onFolderClick={handleFolderClick}
+                  onBookmarksChange={handleBookmarksChange}
+                  loading={loading}
+                  isNavigating={isNavigating}
+                  sortField={sortField}
+                  sortOrder={sortOrder}
+                  onSortChange={handleSortChange}
+                />
+              ) : (
+                /* === 排序视图 (拖拽) === */
+                <div className="p-6">
+                   <div className="mb-4 p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50">
+                      💡 提示：拖拽卡片来调整顺序。此操作会直接更新数据库中的排序权重。
+                   </div>
+                   <ContentManager 
+                      initialFolders={folders}
+                      initialBookmarks={bookmarks.currentBookmarks}
+                   />
                 </div>
-              </div>
-            ) : (
-              <BookmarkDataTable 
-                collectionId={selectedCollectionId}
-                folders={folders}
-                bookmarks={bookmarks}
-                currentFolderId={currentFolderId}
-                onFolderClick={handleFolderClick}
-                onBookmarksChange={handleBookmarksChange}
-                loading={loading}
-                isNavigating={isNavigating}
-                sortField={sortField}
-                sortOrder={sortOrder}
-                onSortChange={handleSortChange}
-              />
-            )}
-          </>
+              )}
+            </div>
+          </div>
         )}
 
         <CreateBookmarkDialog 
