@@ -41,7 +41,6 @@ model Folder {
   collection  Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   bookmarks   Bookmark[]  // 书签
   createdAt   DateTime    @default(now())
-  sortOrder Int      @default(0)
   updatedAt   DateTime    @updatedAt
 }
 
