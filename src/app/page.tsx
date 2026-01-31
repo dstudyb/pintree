@@ -6,6 +6,7 @@ import { WebsiteSidebar } from "@/components/website/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { BookmarkGrid } from "@/components/bookmark/BookmarkGrid";
 import { Header } from "@/components/website/header";
+// import { Footer } from "@/components/website/footer"; // 注释掉 Footer
 import { TopBanner } from "@/components/website/top-banner";
 import { useSession } from "next-auth/react";
 import { GetStarted } from "@/components/website/get-started";
@@ -40,7 +41,7 @@ function SearchParamsComponent() {
     router.push(`${pathname}?${currentSearchParams.toString()}`);
   }
 
-  // Get background settings
+  // 获取背景设置
   useEffect(() => {
     const fetchBackground = async () => {
       try {
@@ -59,7 +60,7 @@ function SearchParamsComponent() {
     fetchBackground();
   }, []);
 
-  // Fetch collections and handle default navigation
+  // 获取集合并处理默认跳转
   useEffect(() => {
     const folderId = searchParams.get("folderId");
     setCurrentFolderId(folderId);
@@ -76,7 +77,7 @@ function SearchParamsComponent() {
         const data = await response.json();
         setCollections(data);
 
-        // 1. If URL specifies a collection, use it
+        // set selected collection by slug
         if (collectionSlug) {
           const currentCollection = data.find(
             (c: Collection) => c.slug === collectionSlug
@@ -86,27 +87,25 @@ function SearchParamsComponent() {
             setCollectionName(currentCollection.name);
           }
         } else {
-          // ================= MODIFIED: Default to the first collection =================
-          // 2. If URL doesn't specify, default to the first collection if any exist
+          // ================= 修改点：不再等待选择，默认进入第一个集合 =================
           if (data.length > 0) {
              const firstCollection = data[0];
              setSelectedCollectionId(firstCollection.id);
              setCollectionName(firstCollection.name);
              
-             // Only update the URL (route) if we aren't already linking to a specific folder.
-             // This prevents overwriting deep links while still providing a default landing.
+             // 如果 URL 没有指定 folderId，则执行路由跳转更新 URL
              if (!folderId) {
                 routeToFolderInCollection(firstCollection);
              }
           } else {
-             // Truly no collections exist
+             // 确实没有集合，才置空
              setSelectedCollectionId("");
              setCollectionName("");
           }
-          // =========================================================================
+          // ======================================================================
         }
       } catch (error) {
-        console.error("Failed to fetch collections:", error);
+        console.error("获取 collections 失败:", error);
       } finally {
         setIsLoading(false);
       }
@@ -142,7 +141,7 @@ function SearchParamsComponent() {
       try {
         setRefreshTrigger((prev) => prev + 1);
       } catch (error) {
-        console.error("Failed to refresh data:", error);
+        console.error("刷新数据失败:", error);
       }
     }
   }, [selectedCollectionId, currentFolderId]);
@@ -166,14 +165,9 @@ function SearchParamsComponent() {
         <TopBanner />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Logic Updated:
-              If collections exist and one is selected (which is now automatic), show content.
-              Only show "Discover" or "Get Started" if absolutely no collections exist.
-          */}
           {!isLoading && collections.length > 0 && !selectedCollectionId ? (
-             /* This block is theoretically unreachable now unless data is corrupted, kept as fallback */
              <div className="flex-1 container mx-auto px-4 py-12 overflow-y-auto hide-scrollbar">
-                {/* Fallback view */}
+                {/* 这里理论上不会显示了，因为会自动跳转，保留结构防止报错 */}
              </div>
           ) : (
             <SidebarProvider
@@ -193,6 +187,7 @@ function SearchParamsComponent() {
                   currentFolderId={currentFolderId}
                   onCollectionChange={handleCollectionChange}
                   onFolderSelect={handleFolderSelect}
+                  collections={collections} // <--- 关键修复：确保侧边栏图标能显示
                 />
                 <div className="flex flex-1 flex-col space-y-8 h-full overflow-hidden">
                   <Header
