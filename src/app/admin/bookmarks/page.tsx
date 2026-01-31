@@ -25,7 +25,7 @@ interface Collection {
   slug: string;
 }
 
-// === 修改点：去掉了可选属性中的 | null，以兼容 BookmarkDataTable 组件 ===
+// 保持之前的修复：去掉了可选属性中的 | null
 interface Bookmark {
   id: string;
   title: string;
@@ -37,7 +37,6 @@ interface Bookmark {
   viewCount: number;
   collectionId: string;
   folderId?: string;
-  // 修正：去掉 | null，让 TS 认为它只可能是 undefined 或对象
   folder?: {
     name: string;
   };
@@ -427,7 +426,8 @@ export default function BookmarksPage() {
                   onBookmarksChange={handleBookmarksChange}
                   loading={loading}
                   isNavigating={isNavigating}
-                  sortField={sortField}
+                  // === 修复点：添加了类型断言 as ... ===
+                  sortField={sortField as "createdAt" | "updatedAt"} 
                   sortOrder={sortOrder}
                   onSortChange={handleSortChange}
                 />
@@ -439,7 +439,6 @@ export default function BookmarksPage() {
                    </div>
                    <ContentManager 
                       initialFolders={folders}
-                      // 这里可能需要做一个类型断言，或者 ContentManager 已经兼容
                       initialBookmarks={bookmarks.currentBookmarks}
                    />
                 </div>
