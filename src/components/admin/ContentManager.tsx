@@ -126,7 +126,7 @@ export function ContentManager({ initialFolders, initialBookmarks }: ContentMana
                   <SortableItem key={folder.id} id={folder.id}>
                     <FolderCard
                       // 传递你的 FolderCard 需要的 props
-                      id={folder.id}
+                     
                       name={folder.name}
                       icon={folder.icon}
                       itemCount={folder._count?.bookmarks || 0}
