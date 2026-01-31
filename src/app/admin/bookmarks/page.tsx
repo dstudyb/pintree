@@ -6,7 +6,7 @@ import { Plus, FolderPlus, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { BookmarkDataTable } from "@/components/bookmark/BookmarkDataTable";
 import { CreateBookmarkDialog } from "@/components/bookmark/CreateBookmarkDialog";
 import { CreateFolderDialog } from "@/components/folder/CreateFolderDialog";
-import { ContentManager } from "@/components/admin/ContentManager"; // <--- 新增引入
+import { ContentManager } from "@/components/admin/ContentManager";
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ interface Collection {
   slug: string;
 }
 
+// === 修改点：去掉了可选属性中的 | null，以兼容 BookmarkDataTable 组件 ===
 interface Bookmark {
   id: string;
   title: string;
@@ -36,13 +37,14 @@ interface Bookmark {
   viewCount: number;
   collectionId: string;
   folderId?: string;
+  // 修正：去掉 | null，让 TS 认为它只可能是 undefined 或对象
   folder?: {
     name: string;
-  } | null;
+  };
   collection?: {
     name: string;
     slug: string;
-  } | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -54,7 +56,7 @@ interface Folder {
   isPublic: boolean;
   sortOrder: number;
   parentId: string | null;
-  _count?: { bookmarks: number }; // 补充计数类型
+  _count?: { bookmarks: number };
   createdAt: string;
   updatedAt: string;
 }
@@ -63,9 +65,7 @@ export default function BookmarksPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false);
   
-  // === 新增：视图模式状态 ('table' | 'sort') ===
   const [viewMode, setViewMode] = useState<"table" | "sort">("table"); 
-  // ===========================================
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -77,11 +77,11 @@ export default function BookmarksPage() {
     subfolders: []
   });
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<"createdAt" | "updatedAt" | "sortOrder">("sortOrder"); // 默认按顺序排
+  const [sortField, setSortField] = useState<"createdAt" | "updatedAt" | "sortOrder">("sortOrder");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>();
   const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string; parentId: string | null }>>([]);
-  const [folders, setFolders] = useState<Folder[]>([]); // 这里的 folders 实际上是 subfolders 的副本，或者可以统一使用 bookmarks.subfolders
+  const [folders, setFolders] = useState<Folder[]>([]); 
   const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
@@ -139,7 +139,7 @@ export default function BookmarksPage() {
         currentBookmarks: data.currentBookmarks || [],
         subfolders: data.subfolders || []
       });
-      // 同时更新 folders 状态，保持一致
+      
       setFolders(data.subfolders || []);
 
     } catch (error) {
@@ -182,9 +182,6 @@ export default function BookmarksPage() {
       setCurrentFolderId(folderId);
       setFolderPath(pathData);
 
-      // 切换文件夹时，如果不强制重置排序，可以保持当前排序偏好
-      // 但为了拖拽体验，建议进入新文件夹时默认使用 'sortOrder'
-      
       const [bookmarksResponse, foldersResponse] = await Promise.all([
         fetch(
           `/api/collections/${selectedCollectionId}/bookmarks?` + 
@@ -442,6 +439,7 @@ export default function BookmarksPage() {
                    </div>
                    <ContentManager 
                       initialFolders={folders}
+                      // 这里可能需要做一个类型断言，或者 ContentManager 已经兼容
                       initialBookmarks={bookmarks.currentBookmarks}
                    />
                 </div>
