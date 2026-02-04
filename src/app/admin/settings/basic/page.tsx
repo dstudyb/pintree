@@ -33,7 +33,30 @@ import {
 import { useRouter } from "next/navigation";
 
 import { revalidateData } from "@/actions/revalidate-data";
-import { Image as ImageIcon } from "lucide-react"; 
+import { Image as ImageIcon, Check } from "lucide-react"; // 引入 Check 图标
+import { cn } from "@/lib/utils"; // 引入 cn 工具
+
+// ================= 修改点 1: 定义预设颜色列表 =================
+const PRESET_COLORS = [
+  { name: "Zinc", value: "#18181b" },     
+  { name: "Slate", value: "#0f172a" },    
+  { name: "Stone", value: "#1c1917" },    
+  { name: "Red", value: "#7f1d1d" },      
+  { name: "Orange", value: "#7c2d12" },   
+  { name: "Amber", value: "#78350f" },    
+  { name: "Green", value: "#14532d" },    
+  { name: "Emerald", value: "#064e3b" },  
+  { name: "Teal", value: "#134e4a" },     
+  { name: "Cyan", value: "#164e63" },     
+  { name: "Blue", value: "#1e3a8a" },     
+  { name: "Indigo", value: "#312e81" },   
+  { name: "Violet", value: "#4c1d95" },   
+  { name: "Purple", value: "#581c87" },   
+  { name: "Fuchsia", value: "#701a75" },  
+  { name: "Pink", value: "#831843" },     
+  { name: "Rose", value: "#881337" },     
+];
+// ==========================================================
 
 export default function BasicSettingsPage() {
   const router = useRouter();
@@ -41,9 +64,10 @@ export default function BasicSettingsPage() {
   const [loading, setLoading] = useState(false);
   
   const [bgUrl, setBgUrl] = useState("");
-  // ================= 修改点 1: 新增透明度状态 (默认85) =================
   const [bgOpacity, setBgOpacity] = useState(85);
-  // ===================================================================
+  // ================= 修改点 2: 新增背景色状态 =================
+  const [bgColor, setBgColor] = useState("#f9f9f9"); // 默认浅灰
+  // ==========================================================
 
   const [settings, setSettings] = useState({
     websiteName: "",
@@ -85,15 +109,16 @@ export default function BasicSettingsPage() {
         );
         setSettings((prev) => ({ ...prev, ...sanitizedData }));
 
-        // ================= 修改点 2: 加载背景图和透明度 =================
+        // 2. 加载背景设置 (图片、透明度、颜色)
         const bgResponse = await fetch("/api/settings/background");
         if (bgResponse.ok) {
           const bgData = await bgResponse.json();
           if (bgData.url) setBgUrl(bgData.url);
-          // 如果有透明度值，更新状态
           if (bgData.opacity !== undefined) setBgOpacity(Number(bgData.opacity));
+          // ================= 修改点 3: 加载保存的颜色 =================
+          if (bgData.color) setBgColor(bgData.color);
+          // ==========================================================
         }
-        // ==============================================================
 
       } catch (error) {
         console.error("Load settings error:", error);
@@ -121,9 +146,9 @@ export default function BasicSettingsPage() {
     try {
       setLoading(true);
       console.log("Submitted settings for tab:", activeTab); 
-   
+    
       const saveSettingPromises = [];
-   
+    
       // 根据当前标签页筛选需要保存的设置项
       const settingsToSave = (() => {
         switch (activeTab) {
@@ -157,12 +182,12 @@ export default function BasicSettingsPage() {
             return {};
         }
       })();
-   
+    
       // 处理图片上传（仅针对基本信息标签页）
       if (activeTab === "basicInfo") {
         const logoInput = document.getElementById('logoUrl') as HTMLInputElement;
         const faviconInput = document.getElementById('faviconUrl') as HTMLInputElement;
-   
+    
         if (logoInput && logoInput.files && logoInput.files.length > 0) {
           const logoFile = logoInput.files[0];
           const logoFormData = new FormData();
@@ -172,7 +197,7 @@ export default function BasicSettingsPage() {
             updateSettingImage(logoFormData)
           );
         }
-   
+    
         if (faviconInput && faviconInput.files && faviconInput.files.length > 0) {
           const faviconFile = faviconInput.files[0];
           const faviconFormData = new FormData();
@@ -183,20 +208,21 @@ export default function BasicSettingsPage() {
           );
         }
 
-        // ================= 修改点 3: 同时保存 URL 和 透明度 =================
+        // ================= 修改点 4: 保存颜色、URL 和 透明度 =================
         saveSettingPromises.push(
           fetch("/api/settings/background", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               url: bgUrl, 
-              opacity: bgOpacity // 发送透明度
+              opacity: bgOpacity,
+              color: bgColor // 保存颜色
             }),
           })
         );
         // =================================================================
       }
-   
+    
       // 添加基本设置保存到 saveSettingPromises
       saveSettingPromises.push(
         fetch("/api/settings", {
@@ -211,12 +237,12 @@ export default function BasicSettingsPage() {
           return response.json();
         })
       );
-   
+    
       // 并行处理所有操作
       await Promise.all(saveSettingPromises);
-   
+    
       toast.success(`Settings saved`);
- 
+  
       revalidateData();
     } catch (error) {
       console.error("Save settings failed:", error);
@@ -276,73 +302,148 @@ export default function BasicSettingsPage() {
                       <FaviconUploader />
                     </div>
 
-                    {/* ================= 修改点 4: 背景图和透明度设置 UI ================= */}
-                    <div className="grid gap-2 pt-4 border-t mt-2">
-                      <Label htmlFor="bgUrl">Main Page Background</Label>
-                      <div className="relative">
-                        <ImageIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="bgUrl"
-                          placeholder="https://example.com/background.jpg"
-                          value={bgUrl}
-                          onChange={(e) => setBgUrl(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                      <p className="text-[0.8rem] text-muted-foreground">
-                        Enter a direct link to an image (JPG, PNG, WebP). Leave empty to use default theme.
-                      </p>
+                    {/* ================= 修改点 5: 主题色与背景图设置区域 ================= */}
+                    <div className="pt-4 border-t mt-2 space-y-6">
                       
-                      {/* 透明度滑块 (仅当有背景图时显示) */}
-                      {bgUrl && (
-                        <div className="mt-4 p-4 bg-slate-50 rounded-lg border space-y-3">
-                           <div className="flex justify-between items-center">
-                              <Label htmlFor="opacity" className="text-sm font-medium">
-                                Overlay Intensity (Mask)
-                              </Label>
-                              <span className="text-sm font-bold bg-white px-2 py-1 rounded border">
-                                {bgOpacity}%
-                              </span>
+                      {/* --- 主题颜色设置 --- */}
+                      <div className="grid gap-2">
+                         <Label>Theme Color</Label>
+                         <div className="flex gap-2">
+                           <div className="relative flex-1">
+                             <div 
+                               className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded border shadow-sm"
+                               style={{ backgroundColor: bgColor }}
+                             />
+                             <Input 
+                               value={bgColor}
+                               onChange={(e) => setBgColor(e.target.value)}
+                               className="pl-12 font-mono uppercase"
+                               placeholder="#000000"
+                               maxLength={9}
+                             />
                            </div>
-                           
-                           <input
-                              type="range"
-                              id="opacity"
-                              min="0"
-                              max="100"
-                              step="5"
-                              value={bgOpacity}
-                              onChange={(e) => setBgOpacity(Number(e.target.value))}
-                              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                           <input 
+                             type="color" 
+                             value={bgColor.length === 7 ? bgColor : "#000000"} // 简单的防错
+                             onChange={(e) => setBgColor(e.target.value)}
+                             className="h-10 w-10 cursor-pointer rounded-md border p-1 bg-white"
                            />
-                           
-                           <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                             <span>0% (Clear Image)</span>
-                             <span>100% (Solid Color)</span>
+                         </div>
+                         
+                         {/* 预设颜色按钮 */}
+                         <div className="mt-2">
+                           <Label className="text-xs text-muted-foreground mb-2 block font-normal">Presets</Label>
+                           <div className="flex flex-wrap gap-2">
+                             {PRESET_COLORS.map((color) => (
+                               <button
+                                 key={color.value}
+                                 type="button"
+                                 onClick={() => setBgColor(color.value)}
+                                 className={cn(
+                                   "group relative h-6 w-6 rounded-full border border-muted transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                                   bgColor.toLowerCase() === color.value.toLowerCase() && "ring-2 ring-primary ring-offset-2"
+                                 )}
+                                 style={{ backgroundColor: color.value }}
+                                 title={color.name}
+                               >
+                                 {bgColor.toLowerCase() === color.value.toLowerCase() && (
+                                   <span className="absolute inset-0 flex items-center justify-center">
+                                     <Check className="h-3 w-3 text-white drop-shadow-md" />
+                                   </span>
+                                 )}
+                               </button>
+                             ))}
                            </div>
-                        </div>
-                      )}
+                         </div>
+                      </div>
 
-                      {/* 预览区域 */}
-                      {bgUrl && (
-                        <div className="mt-2 border rounded-md overflow-hidden h-40 relative bg-muted w-full">
-                          {/* 背景层 */}
-                          <div 
-                            className="absolute inset-0 bg-cover bg-center"
-                            style={{ backgroundImage: `url(${bgUrl})` }}
+                      {/* --- 背景图片设置 --- */}
+                      <div className="grid gap-2">
+                        <Label htmlFor="bgUrl">Main Page Background Image</Label>
+                        <div className="relative">
+                          <ImageIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="bgUrl"
+                            placeholder="https://example.com/background.jpg"
+                            value={bgUrl}
+                            onChange={(e) => setBgUrl(e.target.value)}
+                            className="pl-9"
                           />
-                          {/* 遮罩层 - 使用背景色 + 透明度 */}
+                        </div>
+                        <p className="text-[0.8rem] text-muted-foreground">
+                          Enter a link to an image. If empty, the <b>Theme Color</b> above will be used.
+                        </p>
+                        
+                        {/* 透明度滑块 (仅当有背景图时显示) */}
+                        {bgUrl && (
+                          <div className="mt-4 p-4 bg-slate-50 rounded-lg border space-y-3">
+                             <div className="flex justify-between items-center">
+                                <Label htmlFor="opacity" className="text-sm font-medium">
+                                  Overlay Intensity (Mask)
+                                </Label>
+                                <span className="text-sm font-bold bg-white px-2 py-1 rounded border">
+                                  {bgOpacity}%
+                                </span>
+                             </div>
+                             
+                             <input
+                               type="range"
+                               id="opacity"
+                               min="0"
+                               max="100"
+                               step="5"
+                               value={bgOpacity}
+                               onChange={(e) => setBgOpacity(Number(e.target.value))}
+                               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                             />
+                             
+                             <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                               <span>0% (Clear Image)</span>
+                               <span>100% (Solid Theme Color)</span>
+                             </div>
+                          </div>
+                        )}
+
+                        {/* 预览区域 */}
+                        <div className="mt-4 border rounded-md overflow-hidden h-48 relative bg-muted w-full shadow-sm">
+                          {/* 1. 底层：纯色背景 (Theme Color) */}
                           <div 
-                             className="absolute inset-0 bg-white dark:bg-black transition-all duration-300"
-                             style={{ opacity: bgOpacity / 100 }}
+                            className="absolute inset-0 transition-colors duration-300"
+                            style={{ backgroundColor: bgColor }}
                           />
-                          {/* 模拟文字 */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                             <div className="text-xl font-bold text-foreground z-10">Preview Title</div>
-                             <div className="text-sm text-muted-foreground z-10">Adjust opacity to make text readable</div>
+
+                          {/* 2. 中层：背景图片 (如果有) */}
+                          {bgUrl && (
+                             <div 
+                               className="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+                               style={{ backgroundImage: `url(${bgUrl})` }}
+                             />
+                          )}
+
+                          {/* 3. 顶层：遮罩层 (使用 Theme Color + 透明度) */}
+                          {/* 如果有图片，这个层负责制造"变暗/变色"效果。如果没有图片，这个层其实看不出来，因为底层已经是 Theme Color 了 */}
+                          {bgUrl && (
+                            <div 
+                               className="absolute inset-0 transition-all duration-300"
+                               style={{ 
+                                 backgroundColor: bgColor, // 使用选定的主题色作为遮罩颜色，而不是写死的黑/白
+                                 opacity: bgOpacity / 100 
+                               }}
+                            />
+                          )}
+
+                          {/* 模拟文字内容 */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
+                             <div className="text-2xl font-bold text-white drop-shadow-md z-10">Preview Title</div>
+                             <div className="text-sm text-white/90 drop-shadow-md z-10">
+                               This is how your main page might look.
+                             </div>
+                             <Button variant="secondary" size="sm" className="mt-2 z-10 shadow-lg pointer-events-none">
+                               Button Example
+                             </Button>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                     {/* ===================================================================== */}
 
@@ -352,7 +453,6 @@ export default function BasicSettingsPage() {
             </TabsContent>
 
             <TabsContent value="statistics">
-              {/* ... 统计设置保持不变 ... */}
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground font-normal">
                   Statistics Code
@@ -440,8 +540,6 @@ function LogoUploader() {
 
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
-
-      // 立即展示预览
       setCurrentLogoUrl(base64);
     };
 
@@ -492,8 +590,6 @@ function FaviconUploader() {
 
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
-
-      // 立即展示预览
       setCurrentFaviconUrl(base64);
     };
 
